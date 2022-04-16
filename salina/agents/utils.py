@@ -83,12 +83,12 @@ class TemporalAgent(Agent):
         _t = t
         while True:
             self.agent(workspace, t=_t, **kwargs)
-            if not stop_variable is None:
+            if stop_variable is not None:
                 s = workspace.get(stop_variable, _t)
                 if s.all():
                     break
             _t += 1
-            if not n_steps is None:
+            if n_steps is not None:
                 if _t >= t + n_steps:
                     break
 

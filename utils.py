@@ -59,7 +59,7 @@ def set_value_with_key_path(nested_dict: DictConfig, key_path: str, value):
     nested_dict[keys[-1]] = value
 
 
-### Salina additions ####
+# Salina additions ####
 
 # need to check if this function works well using cuda
 def vector_to_parameters(vec: torch.Tensor, parameters) -> None:
@@ -89,22 +89,21 @@ def vector_to_parameters(vec: torch.Tensor, parameters) -> None:
 # !!!! nRemoteParamAgent,  Not ready (WIP) !!!
 class nRemoteParamAgent(Agent):
     """
-        Class that allows to evaluate N (different) individuals with m processes
-        The user have to provide: 
-            1/ the aquisition agent list or template
-            2/ list of parameters for each of the individual of the pop
-            3/ the function that apply the parameters to the acquisition agent
-        This implementation is based on the  Asynchronous agents
-        (i think another implementation could use the Nremote agent 
-        maybe by slicing the shared workspace to separate the experiences 
-        collected by each individual)
+    Class that allows to evaluate N (different) individuals with m processes
+    The user have to provide:
+       1/ the aquisition agent list or template
+       2/ list of parameters for each of the individual of the pop
+       3/ the function that apply the parameters to the acquisition agent
+    This implementation is based on the  Asynchronous agents
+    (I think another implementation could use the NRemote agent
+    maybe by slicing the shared workspace to separate the experiences
+    collected by each individual)
     """
 
     def __init__(self, acq_agent: Agent, n_process: int, name: str = "") -> None:
         """
         Implements a list of agent which are executed aynchronously in another process.
-        Each agent can be parametrized by specific parameters and will returns it's own 
-        workspace. 
+        Each agent can be parametrized by specific parameters and will returns it's own workspace.
         acq_agent : an instance of the agent that will be runned over each processes
         n_process : 
         apply_params : a function f(acq_agent, param) => acq_agent
@@ -168,7 +167,7 @@ class nRemoteDistinctAgents(Agent):
         Basic usage : 
         remote = nRemoteDistinctAgents(n_process)
         remote(acq_agent_list,)
-        The user have to provide: 
+        The user have to provide:
             1/ a list of acqusition_agent that will be copied to remotes
         This implementation is based on the  Asynchronous agents
         (i think another implementation could use the Nremote agent

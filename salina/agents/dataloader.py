@@ -5,10 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 #
 
-import gym
+# import gym
 import torch
 from gym.utils import seeding
-from torch.utils.data import DataLoader
+
+# from torch.utils.data import DataLoader
 
 from salina import Agent
 

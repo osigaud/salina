@@ -145,7 +145,7 @@ class CompactTemporalTensor:
         self.device = None
         self.dtype = None
         self.tensor = None
-        if not value is None:
+        if value is not None:
             self.tensor = value
             self.device = value.device
             self.size = value.size()
@@ -153,7 +153,7 @@ class CompactTemporalTensor:
 
     def set(self, t, value, batch_dims):
         assert False
-        assert not self.tensor is None, "Tensor must be initialized"
+        assert self.tensor is not None, "Tensor must be initialized"
         assert self.size[1:] == value.size(), "Incompatible size"
         assert self.device == value.device, "Incompatible device"
         assert self.dtype == value.dtype, "Incompatible type"
@@ -317,14 +317,14 @@ class Workspace:
         """
         self.variables = {}
         self.is_shared = False
-        if not workspace is None:
+        if workspace is not None:
             for k in workspace.keys():
                 self.set_full(k, workspace[k].clone())
 
     def set(self, var_name: str, t: int, v: torch.Tensor, batch_dims: Optional[tuple(int, int)] = None):
         """ Set the variable var_name at time t
         """
-        if not var_name in self.variables:
+        if var_name not in self.variables:
             assert not self.is_shared, "Cannot add new variable into a shared workspace"
             self.variables[var_name] = SlicedTemporalTensor()
         elif isinstance(self.variables[var_name], CompactTemporalTensor):
@@ -361,7 +361,7 @@ class Workspace:
         """ Set variable var_name with a complete tensor (TxBx...) where T is the time dimension
         and B is the batch size
         """
-        if not var_name in self.variables:
+        if var_name not in self.variables:
             assert not self.is_shared, "Cannot add new variable into a shared workspace"
             self.variables[var_name] = CompactTemporalTensor()
         self.variables[var_name].set_full(value, batch_dims=batch_dims)
@@ -526,7 +526,7 @@ class Workspace:
             workspace = Workspace()
             for k, v in self.variables.items():
                 value = v.get_full(None).detach()
-                if not time_size is None:
+                if time_size is not None:
                     s = value.size()
                     value = torch.zeros(time_size, *s[1:], dtype=value.dtype, device=value.device)
                 ts = [value for t in range(n_repeat)]

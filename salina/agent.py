@@ -63,10 +63,9 @@ class Agent(nn.Module):
         Args:
             workspace (salina.Workspace): the workspace on which the agent operates
         """
-        assert not workspace is None, "[Agent.__call__] workspace must not be None"
+        assert workspace is not None, "[Agent.__call__] workspace must not be None"
         self.workspace = workspace
         self.forward(**kwargs)
-        w = self.workspace
         self.workspace = None
 
     def _asynchronous_call(self, workspace, **kwargs):
@@ -103,7 +102,7 @@ class Agent(nn.Module):
         Args:
             index (str or tuple(str,int)): if str, returns the variable workspace[str]. If tuple(var_name,t), returns workspace[var_name] at time t
         """
-        if not self.__trace_file is None:
+        if self.__trace_file is not None:
             t = time.time()
             self.__trace_file.write(str(self) + " type = " + type(self) + " time = ", t, " get ", index, "\n")
         if isinstance(index, str):
@@ -123,7 +122,7 @@ class Agent(nn.Module):
             index (str or tuple(str,int)):
             value (torch.Tensor): the value to write
         """
-        if not self.__trace_file is None:
+        if self.__trace_file is not None:
             t = time.time()
             self.__trace_file.write(
                 str(self) + " type = " + type(self) + " time = ",

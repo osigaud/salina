@@ -107,7 +107,6 @@ class TFLogger(SummaryWriter):
         return d
 
     def _to_dict(self, h):
-        r = {}
         if isinstance(h, dict):
             return {k: self._to_dict(v) for k, v in h.items()}
         if isinstance(h, DictConfig):
@@ -140,7 +139,7 @@ class TFLogger(SummaryWriter):
     def _to_pickle(self, name, value, iteration):
         self.to_pickle.append((name, iteration, value))
 
-        if not self.every_n_seconds is None:
+        if self.every_n_seconds is not None:
             if time.time() - self._start_time > self.every_n_seconds:
                 if self.use_zip:
                     f = bz2.BZ2File(self.picklename, "ab")
@@ -245,7 +244,7 @@ class Log:
         assert name in self.values
         x, y = [], []
         for k, v in enumerate(self.values[name]):
-            if not v is None:
+            if v is not None:
                 x.append(k)
                 y.append(v)
         return x, y
@@ -271,7 +270,7 @@ class Log:
     def get(self, name, keep_none=False):
         v = self.values[name]
         if not keep_none:
-            return [k for k in v if not k is None]
+            return [k for k in v if k is not None]
         else:
             return v
 
@@ -297,17 +296,17 @@ class Log:
 
     def max(self, name):
         v = self.values[name]
-        vv = [k for k in v if not k is None]
+        vv = [k for k in v if k is not None]
         return np.max(vv)
 
     def min(self, name):
         v = self.values[name]
-        vv = [k for k in v if not k is None]
+        vv = [k for k in v if k is not None]
         return np.min(vv)
 
     def argmin(self, name):
         v = self.values[name]
-        vv = [k for k in v if not k is None]
+        vv = [k for k in v if k is not None]
         _max = np.max(vv)
 
         for k in range(len(v)):
@@ -319,7 +318,7 @@ class Log:
 
     def argmax(self, name):
         v = self.values[name]
-        vv = [k for k in v if not k is None]
+        vv = [k for k in v if k is not None]
         _min = np.min(vv)
         vv = []
         for k in range(len(v)):
@@ -340,7 +339,7 @@ class Logs:
         self.hp_names = {k: True for k in log.hps}
         for l in self.logs:
             for k in log.hps:
-                if not k in l.hps:
+                if k not in l.hps:
                     l.hps[k] = "none"
 
         self.logs.append(log)
@@ -436,7 +435,7 @@ def read_log(directory, use_bz2=True, debug=False):
     try:
         while True:
             a = pickle.load(f)
-            if not a is None:
+            if a is not None:
                 for name, iteration, value in a:
                     # print(name,iteration,value)
                     if debug:
@@ -444,7 +443,7 @@ def read_log(directory, use_bz2=True, debug=False):
                     if isinstance(value, np.int64):
                         value = int(value)
                     if isinstance(value, int) or isinstance(value, float) or isinstance(value, str):
-                        if not name in values:
+                        if name not in values:
                             values[name] = []
                         while len(values[name]) < iteration + 1:
                             values[name].append(None)
@@ -478,28 +477,28 @@ def get_directories(directory, use_bz2=True):
 
 def read_directories(directories, use_bz2=True):
 
-    l = Logs()
+    logs = Logs()
     for dirpath in directories:
         log = read_log(dirpath, use_bz2)
-        l.add(log)
-    print("Found %d logs" % l.size())
-    return l
+        logs.add(log)
+    print("Found %d logs" % logs.size())
+    return logs
 
 
 def read_directory(directory, use_bz2=True):
     import os
     import os.path
 
-    l = Logs()
+    logs = Logs()
     name = "db.pickle"
     if use_bz2:
         name = "db.pickle.bzip2"
     for dirpath, dirnames, filenames in os.walk(directory):
         if name in filenames:
             log = read_log(dirpath, use_bz2)
-            l.add(log)
-    print("Found %d logs" % l.size())
-    return l
+            logs.add(log)
+    print("Found %d logs" % logs.size())
+    return logs
 
 
 def _create_col(df, hps, _name):
@@ -535,7 +534,7 @@ def plot_dataframe(df, y, x="iteration", hue=None, style=None, row=None, col=Non
         cols += hue
     else:
         cols += [hue]
-    cols = [c for c in cols if not c is None]
+    cols = [c for c in cols if c is not None]
     df = df[cols].dropna()
 
     if isinstance(row, list):

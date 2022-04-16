@@ -126,7 +126,6 @@ class GymAgent(TAgent):
         done = torch.tensor([False])
         initial_state = torch.tensor([True])
         self.finished[k] = False
-        finished = torch.tensor([False])
         reward = torch.tensor([0.0]).float()
         self.timestep[k] = 0
         timestep = torch.tensor([self.timestep[k]])
@@ -142,7 +141,7 @@ class GymAgent(TAgent):
         return _torch_type(ret), observation, env, done, reward, timestep, initial_state
 
     def _reset(self, k, save_render):
-        retour, observation = self._common_reset(k, save_render)
+        retour, observation, _, _, _, _, _ = self._common_reset(k, save_render)
         self.last_frame[k] = observation
         return retour
 
@@ -186,7 +185,6 @@ class GymAgent(TAgent):
             "reward": torch.tensor([r]).float(),
             "cumulated_reward": torch.tensor([self.cumulated_reward[k]]),
             "timestep": torch.tensor([self.timestep[k]]),
-            "cumulated_reward": torch.tensor([self.cumulated_reward[k]]),
         }
         return _torch_type(ret)
 
@@ -225,7 +223,7 @@ class GymAgent(TAgent):
     def seed(self, seed):
         self._seed = seed
         if self.use_seed:
-            if not self.envs is None:
+            if self.envs is not None:
                 for k, e in enumerate(self.envs):
                     e.seed(self._seed + k)
 

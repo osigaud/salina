@@ -24,7 +24,7 @@ class ReplayBuffer:
             workspace._all_variables_same_time_size()
         ), "Only works with workspace where all variables have the same time_size"
         T = workspace.time_size()
-        if not time_size is None:
+        if time_size is not None:
             assert time_size <= T
             n = T - time_size + 1
             if padding is None:

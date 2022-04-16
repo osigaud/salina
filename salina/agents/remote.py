@@ -79,7 +79,6 @@ class RemoteAgent(Agent):
         self.process = mp.Process(target=f, args=(self.agent, self.i_queue, self.o_queue, self._seed))
         self.process.daemon = False
         self.process.start()
-        r = self.o_queue.get()
 
     def __call__(self, workspace, **kwargs):
         with torch.no_grad():

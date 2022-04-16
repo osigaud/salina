@@ -91,7 +91,7 @@ class TransformerBlockAgent(Agent):
         return self._cached_mask
 
     def forward(self, t=None, **kwargs):
-        if not t is None:
+        if t is not None:
             if self.n_steps is None or self.n_steps == 0:
                 tokens = self.get(self.input_name)[: t + 1]
             else:
