@@ -70,15 +70,8 @@ def _torch_cat_dict(d):
 class GymAgent(TAgent):
     """ Create an Agent from a gym environment
     """
-    def __init__(
-        self,
-        make_env_fn=None,
-        make_env_args={},
-        n_envs=None,
-        input="action",
-        output="env/",
-        use_seed=True
-    ):
+
+    def __init__(self, make_env_fn=None, make_env_args={}, n_envs=None, input="action", output="env/", use_seed=True):
         """ Create an agent from a Gym environment
 
         Args:
@@ -90,7 +83,7 @@ class GymAgent(TAgent):
             use_seed (bool, optional): [If True, then the seed is chained to the environments, and each environment will have its own seed]. Defaults to True.
         """
         super().__init__()
-        self.use_seed=use_seed
+        self.use_seed = use_seed
         assert n_envs > 0
         self.envs = None
         self.env_args = make_env_args
@@ -146,7 +139,7 @@ class GymAgent(TAgent):
             "timestep": timestep,
             "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
         }
-        return _torch_type(ret), observation
+        return _torch_type(ret), observation, env, done, reward, timestep, initial_state
 
     def _reset(self, k, save_render):
         retour, observation = self._common_reset(k, save_render)
@@ -218,9 +211,7 @@ class GymAgent(TAgent):
                 observations.append(obs)
             observations = _torch_cat_dict(observations)
             for k in observations:
-                self.set(
-                    (self.output + k, t), observations[k].to(self.ghost_params.device)
-                )
+                self.set((self.output + k, t), observations[k].to(self.ghost_params.device))
         else:
             assert t > 0
             action = self.get((self.input, t - 1))
@@ -267,15 +258,7 @@ class GymAgent(TAgent):
 class AutoResetGymAgent(GymAgent):
     """The same as GymAgent, but with an automatic reset when done is True"""
 
-    def __init__(
-        self,
-        make_env_fn=None,
-        make_env_args={},
-        n_envs=None,
-        input="action",
-        output="env/",
-        use_seed=True,
-    ):
+    def __init__(self, make_env_fn=None, make_env_args={}, n_envs=None, input="action", output="env/", use_seed=True):
         """ Create an agent from a Gym environment  with Autoreset
 
         Args:
@@ -286,12 +269,9 @@ class AutoResetGymAgent(GymAgent):
             output (str, optional): [the output prefix of the environment]. Defaults to "env/".
             use_seed (bool, optional): [If True, then the seed is chained to the environments, and each environment will have its own seed]. Defaults to True.
         """
-        super().__init__(make_env_fn=make_env_fn,
-        make_env_args=make_env_args,
-        n_envs=n_envs,
-        input=input,
-        output=output,
-        use_seed=use_seed)
+        super().__init__(
+            make_env_fn=make_env_fn, make_env_args=make_env_args, n_envs=n_envs, input=input, output=output, use_seed=use_seed
+        )
 
     def _initialize_envs(self, n):
         self._common_init(n)
@@ -299,7 +279,7 @@ class AutoResetGymAgent(GymAgent):
 
     def _reset(self, k, save_render):
         self.is_running[k] = True
-        retour, observation = self._common_reset(k, save_render)
+        retour, observation, env, done, reward, timestep, initial_state = self._common_reset(k, save_render)
         return retour
 
         if save_render:
@@ -348,7 +328,6 @@ class AutoResetGymAgent(GymAgent):
         }
         return _torch_type(ret)
 
-
     def forward(self, t=0, save_render=False, **kwargs):
         """
         Do one step by reading the `action`
@@ -358,7 +337,7 @@ class AutoResetGymAgent(GymAgent):
 
         observations = []
         for k, env in enumerate(self.envs):
-            if not self.is_running[k] or t==0:
+            if not self.is_running[k] or t == 0:
                 observations.append(self._reset(k, save_render))
             else:
                 assert t > 0
@@ -372,20 +351,8 @@ class AutoResetGymAgent(GymAgent):
 class NoAutoResetGymAgent(GymAgent):
     """ The same as GymAgent, named to make sure it is NoAutoReset
     """
-    def __init__(
-        self,
-        make_env_fn=None,
-        make_env_args={},
-        n_envs=None,
-        input="action",
-        output="env/",
-        use_seed=True
-    ):
+
+    def __init__(self, make_env_fn=None, make_env_args={}, n_envs=None, input="action", output="env/", use_seed=True):
         super().__init__(
-            make_env_fn=make_env_fn,
-            make_env_args=make_env_args,
-            n_envs=n_envs,
-            input=input,
-            output=output,
-            use_seed=use_seed
+            make_env_fn=make_env_fn, make_env_args=make_env_args, n_envs=n_envs, input=input, output=output, use_seed=use_seed
         )

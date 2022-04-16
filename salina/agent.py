@@ -6,6 +6,7 @@
 #
 
 import copy
+import time
 
 import torch
 import torch.nn as nn
@@ -17,7 +18,7 @@ class Agent(nn.Module):
     """ An `Agent` is a `torch.nn.Module` that reads and writes into a `salina.Workspace`
     """
 
-    def __init__(self, name:str =None):
+    def __init__(self, name: str = None, verbose=False):
         """ To create a new Agent
 
         Args:
@@ -26,8 +27,9 @@ class Agent(nn.Module):
         super().__init__()
         self._name = name
         self.__trace_file = None
+        self.verbose = verbose
 
-    def seed(self, seed:int):
+    def seed(self, seed: int):
         """ Provide a seed to this agent. Useful is the agent is stochastic.
 
         Args:
@@ -103,13 +105,7 @@ class Agent(nn.Module):
         """
         if not self.__trace_file is None:
             t = time.time()
-            self.__trace_file.write(
-                str(self) + " type = " + type(self) + " time = ",
-                t,
-                " get ",
-                index,
-                "\n",
-            )
+            self.__trace_file.write(str(self) + " type = " + type(self) + " time = ", t, " get ", index, "\n")
         if isinstance(index, str):
             return self.workspace.get_full(index)
         else:
@@ -152,8 +148,10 @@ class Agent(nn.Module):
             return [self]
         return []
 
+
 class TAgent(Agent):
     """ `TAgent` is used as a convention to represent agents that use a time index in their `__call__` function (not mandatory)
     """
+
     def forward(self, t, **kwargs):
         raise NotImplementedError

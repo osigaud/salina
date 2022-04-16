@@ -1,28 +1,31 @@
 import copy
+from typing import Callable, List, Union
+
 import gym
+import torch
+from gym.spaces import Box, Discrete
 from gym.wrappers import TimeLimit
 from omegaconf import DictConfig
-from salina import Workspace, Agent, instantiate_class
+
+from salina import Agent, Workspace, instantiate_class
 from salina.agents.asynchronous import AsynchronousAgent
-import torch
-from typing import Callable, Union, List
-from gym.spaces import Box, Discrete
+
 
 def get_env_dimensions(env) -> tuple:
     env = instantiate_class(env)
     obs_dim = env.observation_space.shape[0]
-    if isinstance(env.action_space, Discrete) :
+    if isinstance(env.action_space, Discrete):
         action_dim = env.action_space.n
-        del env 
+        del env
         return obs_dim, action_dim
 
-    elif isinstance(env.action_space,Box) : 
+    elif isinstance(env.action_space, Box):
         action_dim = env.action_space.shape[0]
         max_action = env.action_space.high[0]
-        del env 
+        del env
         return obs_dim, action_dim, max_action
     else:
-        raise Exception(f'{type(env.action_space)} unknown')
+        raise Exception(f"{type(env.action_space)} unknown")
 
 
 def make_gym_env(max_episode_steps, env_name):
@@ -30,8 +33,7 @@ def make_gym_env(max_episode_steps, env_name):
 
 
 def soft_param_update(network_to_update, network, rho):
-    for n_to_update, p_net in zip(network_to_update.parameters(),
-                                  network.parameters()):
+    for n_to_update, p_net in zip(network_to_update.parameters(), network.parameters()):
         n_to_update.data.copy_(rho * p_net.data + (1 - rho) * n_to_update.data)
 
 
@@ -41,7 +43,7 @@ def key_path_in_dict(nested_dict: dict, key_path: str):
     Check if a sequences of keys exists in a nested dict
     """
     try:
-        keys = key_path.split('.')
+        keys = key_path.split(".")
         rv = nested_dict
         for key in keys:
             rv = rv[key]
@@ -51,7 +53,7 @@ def key_path_in_dict(nested_dict: dict, key_path: str):
 
 
 def set_value_with_key_path(nested_dict: DictConfig, key_path: str, value):
-    keys = key_path.split('.')
+    keys = key_path.split(".")
     for key in keys[:-1]:
         nested_dict = nested_dict[key]
     nested_dict[keys[-1]] = value
@@ -70,8 +72,7 @@ def vector_to_parameters(vec: torch.Tensor, parameters) -> None:
     """
     # Ensure vec of type Tensor
     if not isinstance(vec, torch.Tensor):
-        raise TypeError('expected torch.Tensor, but got: {}'
-                        .format(torch.typename(vec)))
+        raise TypeError("expected torch.Tensor, but got: {}".format(torch.typename(vec)))
 
     # Pointer for slicing the vector for each parameter
     pointer = 0
@@ -79,14 +80,15 @@ def vector_to_parameters(vec: torch.Tensor, parameters) -> None:
         # The length of the parameter
         num_param = param.numel()
         # Slice the vector, reshape it, and replace the old data of the parameter
-        param.data.copy_(vec[pointer:pointer + num_param].view_as(param).data)
+        param.data.copy_(vec[pointer : pointer + num_param].view_as(param).data)
 
         # Increment the pointer
         pointer += num_param
 
+
 # !!!! nRemoteParamAgent,  Not ready (WIP) !!!
 class nRemoteParamAgent(Agent):
-    '''
+    """
         Class that allows to evaluate N (different) individuals with m processes
         The user have to provide: 
             1/ the aquisition agent list or template
@@ -96,10 +98,10 @@ class nRemoteParamAgent(Agent):
         (i think another implementation could use the Nremote agent 
         maybe by slicing the shared workspace to separate the experiences 
         collected by each individual)
-    '''
-    def __init__(self, acq_agent: Agent, n_process: int,
-                 name: str = '') -> None:
-        '''
+    """
+
+    def __init__(self, acq_agent: Agent, n_process: int, name: str = "") -> None:
+        """
         Implements a list of agent which are executed aynchronously in another process.
         Each agent can be parametrized by specific parameters and will returns it's own 
         workspace. 
@@ -107,7 +109,7 @@ class nRemoteParamAgent(Agent):
         n_process : 
         apply_params : a function f(acq_agent, param) => acq_agent
                        Allow to update each of the agent with a specific set of parameters.
-        '''
+        """
         super().__init__(name)
         self.async_agents = []
         self.n_process = n_process
@@ -130,7 +132,7 @@ class nRemoteParamAgent(Agent):
         for i in range(min(nb_agent_to_launch, self.n_process)):
             launch_agent(self.async_agents[i], i)
 
-        while(True):
+        while True:
             for agent in pool:
                 if not agent.is_running():
                     workspace = agent.get_workspace()
@@ -156,11 +158,12 @@ class nRemoteParamAgent(Agent):
         for a in self.async_agents:
             a.close()
 
+
 # !!!! nRemoteDistinctAgents Not functionnal !!!
 # To my knownledge you can't
 # change the content of an async agent
 class nRemoteDistinctAgents(Agent):
-    '''
+    """
         Class that allows to evaluate N (different) individuals with m processes
         Basic usage : 
         remote = nRemoteDistinctAgents(n_process)
@@ -171,9 +174,10 @@ class nRemoteDistinctAgents(Agent):
         (i think another implementation could use the Nremote agent
         maybe by slicing the shared workspace to separate the experiences
         collected by each individual)
-    '''
-    def __init__(self, n_process: int, name: str = '') -> None:
-        '''
+    """
+
+    def __init__(self, n_process: int, name: str = "") -> None:
+        """
         Implements a list of agent which are executed aynchronously in another process.
         Each agent can be parametrized by specific parameters and will returns it's own 
         workspace. 
@@ -181,7 +185,7 @@ class nRemoteDistinctAgents(Agent):
         n_process : 
         apply_params : a function f(acq_agent, param) => acq_agent
                        Allow to update each of the agent with a specific set of parameters.
-        '''
+        """
         super().__init__(name)
         self.async_agents = []
         self.n_process = n_process
@@ -189,10 +193,7 @@ class nRemoteDistinctAgents(Agent):
             async_agent = AsynchronousAgent(None)
             self.async_agents.append(async_agent)
 
-    def __call__(self, acq_agents: List[Agent],
-                 agents_args: Union[list, dict, None],
-                 **kwargs):
-
+    def __call__(self, acq_agents: List[Agent], agents_args: Union[list, dict, None], **kwargs):
         def get_agent_args(agent_id):
             if agents_args is None:
                 args = {}
@@ -201,7 +202,7 @@ class nRemoteDistinctAgents(Agent):
             elif isinstance(agents_args, list):
                 args = agents_args[agent_id]
             else:
-                raise Exception('Unsupported')
+                raise Exception("Unsupported")
             return args
 
         self.workspaces = []
@@ -216,7 +217,7 @@ class nRemoteDistinctAgents(Agent):
             pool.append(self.async_agents[to_launch_id])
             to_launch_id += 1
 
-        while(len(self.workspaces) < nb_agent_to_launch):
+        while len(self.workspaces) < nb_agent_to_launch:
             j = 0
             for async_agent in pool:
                 if not async_agent.is_running():
@@ -231,7 +232,7 @@ class nRemoteDistinctAgents(Agent):
                         async_agent(**args, **kwargs)
                         # print(f'process {j} launched for agent {to_launch_id}')
                         to_launch_id += 1
-                    else: 
+                    else:
                         pool.remove(async_agent)
                 j += 1
 

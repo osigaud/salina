@@ -13,6 +13,7 @@ from brax.envs.to_torch import JaxToTorchWrapper
 from salina import TAgent
 from salina.agents import Agents
 
+
 class EpisodesDone(TAgent):
     """
     If done is encountered at time t, then done=True for all timeteps t'>=t
@@ -37,6 +38,7 @@ def _torch_cat_dict(d):
     for k in d[0]:
         r[k] = torch.cat([dd[k] for dd in d], dim=0)
     return r
+
 
 class BraxAgent(TAgent):
     """An agent based on a brax environment, with autoreset
@@ -67,9 +69,7 @@ class BraxAgent(TAgent):
     def _initialize_envs(self, n_envs):
         assert self._seed is not None, "[GymAgent] seeds must be specified"
 
-        self.gym_env = create_gym_env(
-            self.brax_env_name, batch_size=n_envs, seed=self._seed, **self.args
-        )
+        self.gym_env = create_gym_env(self.brax_env_name, batch_size=n_envs, seed=self._seed, **self.args)
         self.gym_env = JaxToTorchWrapper(self.gym_env)
 
     def _write(self, v, t):
@@ -85,7 +85,7 @@ class BraxAgent(TAgent):
             o = self.gym_env.reset()
             if self.brax_device is None:
                 self.brax_device = o.device
-                #print(" -- BRAX Device is ", self.brax_device)
+                # print(" -- BRAX Device is ", self.brax_device)
                 self.to(self.brax_device)
 
             my_device = self.ghost_params.device
@@ -95,9 +95,7 @@ class BraxAgent(TAgent):
             ret = {
                 "env_obs": o,
                 "done": torch.tensor([False], device=my_device).repeat(self.n_envs),
-                "initial_state": torch.tensor([True], device=my_device).repeat(
-                    self.n_envs
-                ),
+                "initial_state": torch.tensor([True], device=my_device).repeat(self.n_envs),
                 "reward": torch.zeros(self.n_envs, device=my_device).float(),
                 "timestep": self.timestep,
                 "cumulated_reward": self.cumulated_reward,
@@ -118,12 +116,9 @@ class BraxAgent(TAgent):
             ret = {
                 "env_obs": obs.float(),
                 "done": done,
-                "initial_state": torch.tensor([False], device=my_device).repeat(
-                    self.n_envs
-                ),
+                "initial_state": torch.tensor([False], device=my_device).repeat(self.n_envs),
                 "reward": rewards.float(),
                 "timestep": self.timestep,
-
                 "cumulated_reward": self.cumulated_reward,
             }
             if done.any():

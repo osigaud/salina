@@ -34,18 +34,14 @@ def cumulated_reward(reward, done):
 
 
 def temporal_difference(critic, reward, done, discount_factor):
-    target = (
-        discount_factor * critic[1:].detach() * (1.0 - done[1:].float()) + reward[1:]
-    )
+    target = discount_factor * critic[1:].detach() * (1.0 - done[1:].float()) + reward[1:]
     td = target - critic[:-1]
     to_add = torch.zeros(1, td.size()[1]).to(td.device)
     td = torch.cat([td, to_add], dim=0)
     return td
 
 
-def doubleqlearning_temporal_difference(
-    q, action, q_target, reward, done, discount_factor
-):
+def doubleqlearning_temporal_difference(q, action, q_target, reward, done, discount_factor):
     action_max = q.max(-1)[1]
     q_target_max = _index(q_target, action_max).detach()[1:]
 
@@ -79,9 +75,7 @@ def gae(critic, reward, done, discount_factor, gae_coef):
     return gaes
 
 
-def compute_reinforce_loss(
-    reward, action_probabilities, baseline, action, done, discount_factor
-):
+def compute_reinforce_loss(reward, action_probabilities, baseline, action, done, discount_factor):
 
     batch_size = reward.size()[1]
 
@@ -97,14 +91,8 @@ def compute_reinforce_loss(
     action = action[:max_trajectories_length]
 
     # Create a binary mask to mask useless values (of size max_trajectories_length x batch_size)
-    arange = (
-        torch.arange(max_trajectories_length, device=done.device)
-        .unsqueeze(-1)
-        .repeat(1, batch_size)
-    )
-    mask = arange.lt(
-        trajectories_length.unsqueeze(0).repeat(max_trajectories_length, 1)
-    )
+    arange = torch.arange(max_trajectories_length, device=done.device).unsqueeze(-1).repeat(1, batch_size)
+    mask = arange.lt(trajectories_length.unsqueeze(0).repeat(max_trajectories_length, 1))
     reward = reward * mask
 
     # Compute discounted cumulated reward
@@ -129,11 +117,7 @@ def compute_reinforce_loss(
     entropy = torch.distributions.Categorical(action_probabilities).entropy() * mask
     entropy_loss = entropy.mean()
 
-    return {
-        "baseline_loss": baseline_loss,
-        "policy_loss": policy_loss,
-        "entropy_loss": entropy_loss,
-    }
+    return {"baseline_loss": baseline_loss, "policy_loss": policy_loss, "entropy_loss": entropy_loss}
 
 
 # def soft_update_params(net, target_net, tau):

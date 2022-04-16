@@ -31,9 +31,7 @@ class RewardToGoAgent(Agent):
 
     def forward(self, scaling_factor=1.0, *args):
         reward = self.get(self.i_r_name)
-        reward = torch.cat(
-            [reward[1:], torch.zeros_like(reward[0]).unsqueeze(0)], dim=0
-        )
+        reward = torch.cat([reward[1:], torch.zeros_like(reward[0]).unsqueeze(0)], dim=0)
         done = self.get(self.i_d_name)
         T, B = done.size()[0:2]
         length = done.float().argmax(0)

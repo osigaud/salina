@@ -14,12 +14,14 @@ import torch.multiprocessing as mp
 from salina import Agent
 from salina.workspace import Workspace, _SplitSharedWorkspace
 
-def f(agent, in_queue, out_queue, seed):
+# Unused???
+def f(agent, in_queue, out_queue, seed, verbose):
     """The function that is executed in a single process"""
     out_queue.put("ok")
     running = True
     old_workspace = None
-    print("Seeding remote agent with ", seed)
+    if verbose:
+        print("Seeding remote agent with ", seed)
     agent.seed(seed)
     while running:
         command = in_queue.get()
@@ -50,8 +52,8 @@ class RemoteAgent(Agent):
         Agent ([salina.Agent]): the agent ot execute in another process
     """
 
-    def __init__(self, agent, name=None):
-        super().__init__(name=name)
+    def __init__(self, agent, name=None, verbose=False):
+        super().__init__(name=name, verbose=verbose)
         self.agent = agent
         self._is_running = False
         self.process = None
@@ -68,23 +70,20 @@ class RemoteAgent(Agent):
         raise NotImplementedError
 
     def _create_process(self):
-        print("[RemoteAgent] starting process...")
+        if self.verbose:
+            print("[RemoteAgent] starting process...")
         self.i_queue = mp.Queue()
         self.o_queue = mp.Queue()
         self.i_queue.cancel_join_thread()
         self.o_queue.cancel_join_thread()
-        self.process = mp.Process(
-            target=f, args=(self.agent, self.i_queue, self.o_queue, self._seed)
-        )
+        self.process = mp.Process(target=f, args=(self.agent, self.i_queue, self.o_queue, self._seed))
         self.process.daemon = False
         self.process.start()
         r = self.o_queue.get()
 
     def __call__(self, workspace, **kwargs):
         with torch.no_grad():
-            assert (
-                workspace.is_shared
-            ), "You must use a shared workspace when using a Remote Agent"
+            assert workspace.is_shared, "You must use a shared workspace when using a Remote Agent"
             if self.process is None:
                 self._create_process()
                 self.train(self.train_mode)
@@ -102,9 +101,7 @@ class RemoteAgent(Agent):
         """Non-blocking forward. To use together with `is_running`"""
         with torch.no_grad():
             self._is_running = True
-            assert (
-                workspace.is_shared
-            ), "You must use a shared workspace when using a Remote Agent"
+            assert workspace.is_shared, "You must use a shared workspace when using a Remote Agent"
             if self.process is None:
                 self._create_process()
             if not workspace == self.last_workspace:
@@ -152,7 +149,8 @@ class RemoteAgent(Agent):
         if self.process is None:
             return
 
-        print("[RemoteAgent] closing process")
+        if self.verbose:
+            print("[RemoteAgent] closing process")
         self.i_queue.put(("exit",))
         self.o_queue.get()
         time.sleep(0.1)
@@ -203,9 +201,7 @@ class NRemoteAgent(Agent):
             workspace = Workspace()
             _agent = copy.deepcopy(agent)
             agent(workspace, **extra_kwargs)
-            shared_workspace = workspace._convert_to_shared_workspace(
-                n_repeat=1, time_size=time_size
-            )
+            shared_workspace = workspace._convert_to_shared_workspace(n_repeat=1, time_size=time_size)
             return _agent, shared_workspace
 
         workspace = Workspace()
@@ -213,9 +209,7 @@ class NRemoteAgent(Agent):
         agent(workspace, **extra_kwargs)
         b = workspace.batch_size()
         batch_dims = [(k * b, k * b + b) for k, a in enumerate(agents)]
-        shared_workspace = workspace._convert_to_shared_workspace(
-            n_repeat=num_processes, time_size=time_size
-        )
+        shared_workspace = workspace._convert_to_shared_workspace(n_repeat=num_processes, time_size=time_size)
         agents = [RemoteAgent(a) for a in agents]
         return NRemoteAgent(agents, batch_dims), shared_workspace
 

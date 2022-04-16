@@ -10,6 +10,7 @@ import torch
 from salina import Workspace
 import copy
 
+
 class ReplayBuffer:
     def __init__(self, max_size, device=torch.device("cpu")):
         self.max_size = max_size
@@ -33,29 +34,18 @@ class ReplayBuffer:
                 self.put(nworkspace)
             return
 
-        all_tensors = {
-            k: workspace.get_full(k).detach().to(self.device) for k in workspace.keys()
-        }
+        all_tensors = {k: workspace.get_full(k).detach().to(self.device) for k in workspace.keys()}
         if self.variables is None:
             self.variables = {}
             for k, v in all_tensors.items():
                 s = list(v.size())
                 s[1] = self.max_size
-                _s=copy.deepcopy(s)
-                s[0]=_s[1]
-                s[1]=_s[0]
+                _s = copy.deepcopy(s)
+                s[0] = _s[1]
+                s[1] = _s[0]
 
                 tensor = torch.zeros(*s, dtype=v.dtype, device=self.device)
-                print(
-                    "[ReplayBuffer] Var ",
-                    k,
-                    " size=",
-                    s,
-                    " dtype=",
-                    v.dtype,
-                    " device=",
-                    self.device,
-                )
+                print("[ReplayBuffer] Var ", k, " size=", s, " dtype=", v.dtype, " device=", self.device)
                 self.variables[k] = tensor
             self.is_full = False
             self.position = 0
@@ -73,7 +63,7 @@ class ReplayBuffer:
                 arange = torch.arange(B)
             indexes = indexes.to(v.device)
             arange = arange.to(v.device)
-            self.variables[k][indexes] = v.detach().transpose(0,1)
+            self.variables[k][indexes] = v.detach().transpose(0, 1)
 
         self.position = self.position + B
         if self.position >= self.max_size:
@@ -90,10 +80,10 @@ class ReplayBuffer:
         who = torch.randint(low=0, high=self.size(), size=(B,), device=self.device)
         workspace = Workspace()
         for k in self.variables:
-            workspace.set_full(k, self.variables[k][who].transpose(0,1))
+            workspace.set_full(k, self.variables[k][who].transpose(0, 1))
 
         return workspace
 
-    def to(self,device):
-        n_vars={k:v.to(device) for k,v in self.variables.items()}
-        self.variables=n_vars
+    def to(self, device):
+        n_vars = {k: v.to(device) for k, v in self.variables.items()}
+        self.variables = n_vars

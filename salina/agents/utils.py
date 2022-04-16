@@ -17,6 +17,7 @@ class Agents(Agent):
     Args:
         Agent ([salina.Agent]): The agents
     """
+
     def __init__(self, *agents, name=None):
         """ Creates the agent from multiple agents
 
@@ -156,6 +157,7 @@ class PrintAgent(Agent):
     def forward(self, t, **kwargs):
         for n in self.names:
             print(n, " = ", self.get((n, t)))
+
 
 class EpisodesDone(TAgent):
     """

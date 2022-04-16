@@ -34,13 +34,7 @@ class Id(nn.Module):
 
 class TransformerBlockAgent(Agent):
     def __init__(
-        self,
-        embedding_size,
-        n_heads,
-        n_steps=None,
-        input_name="attn_in/x",
-        output_name="attn_out/x",
-        use_layer_norm=False,
+        self, embedding_size, n_heads, n_steps=None, input_name="attn_in/x", output_name="attn_out/x", use_layer_norm=False
     ):
         """[summary]
 
@@ -83,26 +77,18 @@ class TransformerBlockAgent(Agent):
             return self._cached_mask
 
         if self.n_steps is None or self.n_steps == 0:
-                attn_mask = (
-                    torch.triu(torch.ones(T, T), diagonal=1).bool().to(device)
-                )
+            attn_mask = torch.triu(torch.ones(T, T), diagonal=1).bool().to(device)
         else:
-                attn_mask = torch.triu(torch.ones(T, T), diagonal=1).to(device)
-                attn_mask2 = torch.triu(torch.ones(T, T), diagonal=1 - self.n_steps).to(
-                    device
-                )
-                attn_mask = attn_mask + 1 - attn_mask2
-                attn_mask = attn_mask.bool()
+            attn_mask = torch.triu(torch.ones(T, T), diagonal=1).to(device)
+            attn_mask2 = torch.triu(torch.ones(T, T), diagonal=1 - self.n_steps).to(device)
+            attn_mask = attn_mask + 1 - attn_mask2
+            attn_mask = attn_mask.bool()
 
         # Cache the generated mask
         self._cached_mask = attn_mask
         self._cached_mask_params = (T, n_steps)
 
         return self._cached_mask
-
-
-
-
 
     def forward(self, t=None, **kwargs):
         if not t is None:
@@ -117,9 +103,7 @@ class TransformerBlockAgent(Agent):
             keys = previous_tokens
             values = previous_tokens
             queries = ln_tokens[-1].unsqueeze(0)
-            attn_output, attn_output_weights = self.multiheadattention(
-                queries, keys, values
-            )
+            attn_output, attn_output_weights = self.multiheadattention(queries, keys, values)
             attn_output = attn_output.squeeze(0)
             x = tokens[-1] + attn_output
             nx = _layer_norm(self.ln2, x)
@@ -135,9 +119,7 @@ class TransformerBlockAgent(Agent):
 
             attn_mask = self._get_mask(T, self.n_steps, keys.device)
 
-            attn_output, attn_output_weights = self.multiheadattention(
-                queries, keys, values, attn_mask=attn_mask
-            )
+            attn_output, attn_output_weights = self.multiheadattention(queries, keys, values, attn_mask=attn_mask)
             x = tokens + attn_output
             nx = _layer_norm(self.ln2, x)
             x = x + self.mlp(nx)
@@ -145,15 +127,7 @@ class TransformerBlockAgent(Agent):
 
 
 class TransformerMultiBlockAgent(Agents):
-    def __init__(
-        self,
-        n_layers,
-        embedding_size,
-        n_heads,
-        n_steps=None,
-        prefix="attn_",
-        use_layer_norm=False,
-    ):
+    def __init__(self, n_layers, embedding_size, n_heads, n_steps=None, prefix="attn_", use_layer_norm=False):
         """ A agent that is a transformers architecture. The agent will read the `prefix+'in'` variable and output the `prefix+'out'` variable.
 
         Args:
@@ -174,34 +148,21 @@ class TransformerMultiBlockAgent(Agents):
                 in_prefix = prefix + "in"
             agents.append(
                 TransformerBlockAgent(
-                    embedding_size,
-                    n_heads,
-                    n_steps,
-                    in_prefix + "/x",
-                    out_prefix + "/x",
-                    use_layer_norm=use_layer_norm,
+                    embedding_size, n_heads, n_steps, in_prefix + "/x", out_prefix + "/x", use_layer_norm=use_layer_norm
                 )
             )
         super().__init__(*agents)
 
 
 if __name__ == "__main__":
-    print(
-        "Check that transformers and batch transformers are computing the same output"
-    )
+    print("Check that transformers and batch transformers are computing the same output")
     import sys
 
     device = sys.argv[1]
     a = torch.randn(5, 3, 64).to(device)
     workspace = Workspace()
     workspace.set_full("attn_in/x", a)
-    agent = TransformerMultiBlockAgent(
-        embedding_size=64,
-        n_layers=2,
-        n_heads=4,
-        n_steps=2,
-        use_layer_norm=False,
-    )
+    agent = TransformerMultiBlockAgent(embedding_size=64, n_layers=2, n_heads=4, n_steps=2, use_layer_norm=False)
     agent.to(device)
     for t in range(5):
         agent(workspace, t=t)

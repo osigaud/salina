@@ -14,19 +14,21 @@ import torch.multiprocessing as mp
 from salina import Agent
 from salina.workspace import Workspace, _SplitSharedWorkspace
 
-def f(agent,in_queue,out_queue):
+
+def f(agent, in_queue, out_queue):
     while True:
-        args=in_queue.get()
-        if args=="exit":
+        args = in_queue.get()
+        if args == "exit":
             out_queue.put("ok")
             return
-        workspace=Workspace()
+        workspace = Workspace()
         with torch.no_grad():
-            agent(workspace,**args)
+            agent(workspace, **args)
         out_queue.put("ok")
         for k in workspace.keys():
-            out_queue.put((k,workspace.get_full(k)))
+            out_queue.put((k, workspace.get_full(k)))
         out_queue.put("ok")
+
 
 class AsynchronousAgent(Agent):
     """ Implements an agent that is executed aynchronously in another process, and that returns its own workspace
@@ -38,19 +40,19 @@ class AsynchronousAgent(Agent):
     * workspace=agent.get_workspace()
     """
 
-    def __init__(self,agent):
-        super().__init__()
+    def __init__(self, agent, verbose=False):
+        super().__init__(verbose=verbose)
         """ Create the AsynchronousAgent
 
         Args:
             agent ([salina.Agent]): The agent to execute in another process
         """
-        self._is_running=False
-        self.process=None
-        self._workspace=None
-        self.agent=agent
+        self._is_running = False
+        self.process = None
+        self._workspace = None
+        self.agent = agent
 
-    def __call__(self,**kwargs):
+    def __call__(self, **kwargs):
         """ Executes the agent in non-blocking mode. A new workspace is created by the agent.
         """
         assert not self._is_running
@@ -59,12 +61,10 @@ class AsynchronousAgent(Agent):
             self.o_queue.cancel_join_thread()
             self.i_queue = mp.Queue()
             self.i_queue.cancel_join_thread()
-            self.process = mp.Process(
-                target=f, args=(self.agent, self.i_queue,self.o_queue)
-            )
+            self.process = mp.Process(target=f, args=(self.agent, self.i_queue, self.o_queue))
             self.process.daemon = False
             self.process.start()
-        self._is_running=True
+        self._is_running = True
         self.i_queue.put(kwargs)
 
     def is_running(self):
@@ -79,12 +79,12 @@ class AsynchronousAgent(Agent):
                 assert r == "ok"
                 self._is_running = False
                 r = self.o_queue.get()
-                workspace=Workspace()
-                while(r!="ok"):
-                    key,val=r
-                    workspace.set_full(key,val)
+                workspace = Workspace()
+                while r != "ok":
+                    key, val = r
+                    workspace.set_full(key, val)
                     r = self.o_queue.get()
-                self._workspace=workspace.to("cpu")
+                self._workspace = workspace.to("cpu")
             except:
                 pass
         return self._is_running
@@ -105,7 +105,8 @@ class AsynchronousAgent(Agent):
         if self.process is None:
             return
 
-        print("[AsynchronousAgent] closing process")
+        if self.verbose:
+            print("[AsynchronousAgent] closing process")
         self.i_queue.put("exit")
         self.o_queue.get()
         self.process.terminate()

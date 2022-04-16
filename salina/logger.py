@@ -77,9 +77,7 @@ class TFLogger(SummaryWriter):
         self.log_dir = log_dir
         self.every_n_seconds = every_n_seconds
         if self.every_n_seconds is None:
-            print(
-                "[Deprecated] salina.logger: use 'every_n_seconds' instead of cache_size"
-            )
+            print("[Deprecated] salina.logger: use 'every_n_seconds' instead of cache_size")
         else:
             self.save_every = None
         self._start_time = time.time()
@@ -117,7 +115,7 @@ class TFLogger(SummaryWriter):
         else:
             return h
 
-    def save_hps(self, hps, verbose = True):
+    def save_hps(self, hps, verbose=True):
         hps = self._to_dict(hps)
         if verbose:
             print(hps)
@@ -419,7 +417,7 @@ def flattify(d):
 
 
 def read_log(directory, use_bz2=True, debug=False):
-    #print("== Read ", directory)
+    # print("== Read ", directory)
     # if os.path.exists(directory+"/fast.pickle"):
     #     f=open(directory+"/fast.pickle","rb")
     #     log=pickle.load(f)
@@ -445,11 +443,7 @@ def read_log(directory, use_bz2=True, debug=False):
                         print(name, value, type(value))
                     if isinstance(value, np.int64):
                         value = int(value)
-                    if (
-                        isinstance(value, int)
-                        or isinstance(value, float)
-                        or isinstance(value, str)
-                    ):
+                    if isinstance(value, int) or isinstance(value, float) or isinstance(value, str):
                         if not name in values:
                             values[name] = []
                         while len(values[name]) < iteration + 1:
@@ -479,11 +473,7 @@ def get_directories(directory, use_bz2=True):
     if use_bz2:
         name = "db.pickle.bzip2"
 
-    return [
-        dirpath
-        for dirpath, dirnames, filenames in os.walk(directory)
-        if name in filenames
-    ]
+    return [dirpath for dirpath, dirnames, filenames in os.walk(directory) if name in filenames]
 
 
 def read_directories(directories, use_bz2=True):
@@ -525,9 +515,7 @@ def _create_col(df, hps, _name):
     return pd.concat(vs)
 
 
-def plot_dataframe(
-    df, y, x="iteration", hue=None, style=None, row=None, col=None, kind="line"
-):
+def plot_dataframe(df, y, x="iteration", hue=None, style=None, row=None, col=None, kind="line"):
     import seaborn as sns
 
     cols = [y, x]
