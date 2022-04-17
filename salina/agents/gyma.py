@@ -12,6 +12,15 @@ from salina import TAgent
 import gym
 
 
+def convert_action(action):
+    if len(action.size()) == 0:
+        action = action.item()
+        assert isinstance(action, int)
+    else:
+        action = np.array(action.tolist())
+    return action
+
+
 def _format_frame(frame):
     if isinstance(frame, dict):
         r = {}
@@ -109,6 +118,13 @@ class GymAgent(TAgent):
         self._common_init(n)
         self.last_frame = {}
 
+    def seed(self, seed):
+        self._seed = seed
+        if self.use_seed:
+            if self.envs is not None:
+                for k, e in enumerate(self.envs):
+                    e.seed(self._seed + k)
+
     def _common_reset(self, k, save_render):
         env = self.envs[k]
         self.cumulated_reward[k] = 0.0
@@ -145,6 +161,30 @@ class GymAgent(TAgent):
         self.last_frame[k] = observation
         return retour
 
+    def _make_step(self, env, action):
+        action = convert_action(action)
+
+        o, r, done, _ = env.step(action)
+        self.cumulated_reward[k] += r
+        observation = _format_frame(o)
+        if isinstance(observation, torch.Tensor):
+            observation = {"env_obs": observation}
+        else:
+            assert isinstance(observation, dict)
+        if save_render:
+            image = env.render(mode="image").unsqueeze(0)
+            observation["rendering"] = image
+        ret = {
+            **observation,
+            "done": torch.tensor([done]),
+            "initial_state": torch.tensor([False]),
+            "reward": torch.tensor([r]).float(),
+            "cumulated_reward": torch.tensor([self.cumulated_reward[k]]),
+            "timestep": torch.tensor([self.timestep[k]]),
+        }
+        return _torch_type(ret), observation, done
+
+
     def _step(self, k, action, save_render):
         if self.finished[k]:
             assert k in self.last_frame
@@ -157,36 +197,12 @@ class GymAgent(TAgent):
                 "timestep": torch.tensor([self.timestep[k]]),
             }
         self.timestep[k] += 1
-        env = self.envs[k]
-        if len(action.size()) == 0:
-            action = action.item()
-            assert isinstance(action, int)
-        else:
-            action = np.array(action.tolist())
-
-        o, r, d, _ = env.step(action)
-        self.cumulated_reward[k] += r
-        observation = _format_frame(o)
-        if isinstance(observation, torch.Tensor):
-            observation = {"env_obs": observation}
-        else:
-            assert isinstance(observation, dict)
-        if save_render:
-            image = env.render(mode="image").unsqueeze(0)
-            observation["rendering"] = image
-
+        retour, observation, done = self.make_step(self.envs[k], action)
+        
         self.last_frame[k] = observation
-        if d:
+        if done:
             self.finished[k] = True
-        ret = {
-            **observation,
-            "done": torch.tensor([d]),
-            "initial_state": torch.tensor([False]),
-            "reward": torch.tensor([r]).float(),
-            "cumulated_reward": torch.tensor([self.cumulated_reward[k]]),
-            "timestep": torch.tensor([self.timestep[k]]),
-        }
-        return _torch_type(ret)
+        return retour
 
     def set_obs(self, observations, t):
         observations = _torch_cat_dict(observations)
@@ -219,13 +235,6 @@ class GymAgent(TAgent):
                 obs = self._step(k, action[k], save_render)
                 observations.append(obs)
             self.set_obs(observations, t)
-
-    def seed(self, seed):
-        self._seed = seed
-        if self.use_seed:
-            if self.envs is not None:
-                for k, e in enumerate(self.envs):
-                    e.seed(self._seed + k)
 
     def is_continuous_action(self):
         return isinstance(self.action_space, gym.spaces.Box)
@@ -296,35 +305,10 @@ class AutoResetGymAgent(GymAgent):
 
     def _step(self, k, action, save_render):
         self.timestep[k] += 1
-        env = self.envs[k]
-        if len(action.size()) == 0:
-            action = action.item()
-            assert isinstance(action, int)
-        else:
-            action = np.array(action.tolist())
-
-        o, r, d, _ = env.step(action)
-        self.cumulated_reward[k] += r
-        observation = _format_frame(o)
-        if isinstance(observation, torch.Tensor):
-            observation = {"env_obs": observation}
-        else:
-            assert isinstance(observation, dict)
-        if d:
+        retour, _, done = self.make_step(self.envs[k], action)
+        if done:
             self.is_running[k] = False
-
-        if save_render:
-            image = env.render(mode="image").unsqueeze(0)
-            observation["rendering"] = image
-        ret = {
-            **observation,
-            "done": torch.tensor([d]),
-            "initial_state": torch.tensor([False]),
-            "reward": torch.tensor([r]).float(),
-            "timestep": torch.tensor([self.timestep[k]]),
-            "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
-        }
-        return _torch_type(ret)
+        return retour
 
     def forward(self, t=0, save_render=False, **kwargs):
         """
