@@ -161,7 +161,7 @@ class GymAgent(TAgent):
         self.last_frame[k] = observation
         return retour
 
-    def _make_step(self, env, action):
+    def _make_step(self, env, action, k, save_render):
         action = convert_action(action)
 
         o, r, done, _ = env.step(action)
@@ -197,7 +197,7 @@ class GymAgent(TAgent):
                 "timestep": torch.tensor([self.timestep[k]]),
             }
         self.timestep[k] += 1
-        retour, observation, done = self.make_step(self.envs[k], action)
+        retour, observation, done = self.make_step(self.envs[k], action, k, save_render)
         
         self.last_frame[k] = observation
         if done:
@@ -305,7 +305,7 @@ class AutoResetGymAgent(GymAgent):
 
     def _step(self, k, action, save_render):
         self.timestep[k] += 1
-        retour, _, done = self.make_step(self.envs[k], action)
+        retour, _, done = self.make_step(self.envs[k], action, k, save_render)
         if done:
             self.is_running[k] = False
         return retour
