@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 
 from salina.agent import Agent
-from salina.agents.gymb import AutoResetGymAgent, NoAutoResetGymAgent
+from salina.agents.gyma import AutoResetGymAgent, NoAutoResetGymAgent
 
 
 def build_backbone(sizes, activation):
