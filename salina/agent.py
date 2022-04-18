@@ -156,25 +156,13 @@ class Agent(nn.Module):
         """
         torch.save(self, filename)
 
-    def load_model(self, filename):
+    def load_model(self, filename) -> nn.Module:
         """
         Load a neural network model from a file
         :param filename: the filename, including the path
         :return: the resulting pytorch network
         """
-        net = torch.load(filename)
-        net.eval()
-        return net
-
-    def update(self, loss) -> None:
-        """
-        Apply a loss to a network using gradient backpropagation
-        :param loss: the applied loss
-        :return: nothing
-        """
-        self.optimizer.zero_grad()
-        loss.sum().backward()
-        self.optimizer.step()
+        return torch.load(filename)
 
 
 class TAgent(Agent):

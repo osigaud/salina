@@ -104,6 +104,7 @@ class GymAgent(TAgent):
         self.ghost_params = torch.nn.Parameter(torch.randn(()))
 
     def _common_init(self, n):
+        #TODO: en l'état ce assert ne sert à rien car on initialise seed à 0. Revoir le modèle de seed
         assert self._seed is not None, "[GymAgent] seeds must be specified"
         self.envs = [self.make_env_fn(**self.env_args) for k in range(n)]
         if self.use_seed:
@@ -197,7 +198,7 @@ class GymAgent(TAgent):
                 "timestep": torch.tensor([self.timestep[k]]),
             }
         self.timestep[k] += 1
-        retour, observation, done = self.make_step(self.envs[k], action, k, save_render)
+        retour, observation, done = self._make_step(self.envs[k], action, k, save_render)
         
         self.last_frame[k] = observation
         if done:
@@ -305,7 +306,7 @@ class AutoResetGymAgent(GymAgent):
 
     def _step(self, k, action, save_render):
         self.timestep[k] += 1
-        retour, _, done = self.make_step(self.envs[k], action, k, save_render)
+        retour, _, done = self._make_step(self.envs[k], action, k, save_render)
         if done:
             self.is_running[k] = False
         return retour
