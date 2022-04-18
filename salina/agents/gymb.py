@@ -80,7 +80,7 @@ class GymAgent(TAgent):
     """ Create an Agent from a gym environment
     """
 
-    def __init__(self, make_env_fn=None, make_env_args={}, n_envs=None, input="action", output="env/", use_seed=True):
+    def __init__(self, make_env_fn=None, make_env_args={}, n_envs=None, action_string="action", output="env/", use_seed=True):
         """ Create an agent from a Gym environment
 
         Args:
@@ -100,7 +100,7 @@ class GymAgent(TAgent):
         self._seed = 0
         self.n_envs = n_envs
         self.output = output
-        self.input = input
+        self.input = action_string
         self.make_env_fn = make_env_fn
         self.ghost_params = torch.nn.Parameter(torch.randn(()))
         self.timestep = torch.tensor([0 for _ in range(n_envs)])
@@ -267,7 +267,7 @@ class GymAgent(TAgent):
 class AutoResetGymAgent(GymAgent):
     """The same as GymAgent, but with an automatic reset when done is True"""
 
-    def __init__(self, make_env_fn=None, make_env_args={}, n_envs=None, input="action", output="env/", use_seed=True):
+    def __init__(self, make_env_fn=None, make_env_args={}, n_envs=None, action_string="action", output="env/", use_seed=True):
         """ Create an agent from a Gym environment  with Autoreset
 
         Args:
@@ -280,7 +280,7 @@ class AutoResetGymAgent(GymAgent):
             and each environment will have its own seed]. Defaults to True.
         """
         super().__init__(
-            make_env_fn=make_env_fn, make_env_args=make_env_args, n_envs=n_envs, input=input, output=output, use_seed=use_seed
+            make_env_fn=make_env_fn, make_env_args=make_env_args, n_envs=n_envs,action_string=action_string, output=output, use_seed=use_seed
         )
 
     def _initialize_envs(self, n):
@@ -323,7 +323,7 @@ class NoAutoResetGymAgent(GymAgent):
     """ The same as GymAgent, named to make sure it is not AutoReset
     """
 
-    def __init__(self, make_env_fn=None, make_env_args={}, n_envs=None, input="action", output="env/", use_seed=True):
+    def __init__(self, make_env_fn=None, make_env_args={}, n_envs=None, action_string="action", output="env/", use_seed=True):
         super().__init__(
-            make_env_fn=make_env_fn, make_env_args=make_env_args, n_envs=n_envs, input=input, output=output, use_seed=use_seed
+            make_env_fn=make_env_fn, make_env_args=make_env_args, n_envs=n_envs, input=action_string, output=output, use_seed=use_seed
         )
