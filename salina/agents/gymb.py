@@ -325,5 +325,5 @@ class NoAutoResetGymAgent(GymAgent):
 
     def __init__(self, make_env_fn=None, make_env_args={}, n_envs=None, action_string="action", output="env/", use_seed=True):
         super().__init__(
-            make_env_fn=make_env_fn, make_env_args=make_env_args, n_envs=n_envs, input=action_string, output=output, use_seed=use_seed
+            make_env_fn=make_env_fn, make_env_args=make_env_args, n_envs=n_envs, action_string=action_string, output=output, use_seed=use_seed
         )
