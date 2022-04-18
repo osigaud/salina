@@ -1,11 +1,10 @@
 import sys
 import os
-import numpy as np
 
 import gym
 
 from gym.wrappers import TimeLimit
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import OmegaConf
 from salina import instantiate_class, get_arguments, get_class, Workspace
 from salina.agents import Agents, TemporalAgent
 
@@ -14,6 +13,7 @@ import torch.nn as nn
 
 from salina.agent import Agent
 from salina.agents.gyma import AutoResetGymAgent, NoAutoResetGymAgent
+
 
 def build_backbone(sizes, activation):
     layers = []
@@ -43,7 +43,7 @@ def _index(tensor_3d, tensor_2d):
 
 
 class ProbAgent(Agent):
-    def __init__(self, state_dim, hidden_layers, n_action, **kwargs):
+    def __init__(self, state_dim, hidden_layers, n_action):
         super().__init__(name="prob_agent")
         self.model = build_mlp([state_dim] + list(hidden_layers) + [n_action], activation=nn.ReLU())
 
@@ -59,7 +59,7 @@ class ProbAgent(Agent):
 
 
 class ActionAgent(Agent):
-    def __init__(self, **kwargs):
+    def __init__(self):
         super().__init__()
 
     def forward(self, t, stochastic, **kwargs):
@@ -73,7 +73,7 @@ class ActionAgent(Agent):
 
         
 class VAgent(Agent):
-    def __init__(self, state_dim, hidden_layers, **kwargs):
+    def __init__(self, state_dim, hidden_layers):
         super().__init__()
         self.model = build_mlp([state_dim] + list(hidden_layers) + [1], activation=nn.ReLU())
 
@@ -91,7 +91,7 @@ class Logger:
         self.logger.add_scalar(log_string, loss.item(), epoch)
 
     # Log losses
-    def log_losses(self, cfg, epoch, critic_loss, entropy_loss, a2c_loss):
+    def log_losses(self, epoch, critic_loss, entropy_loss, a2c_loss):
         self.add_log("critic_loss", critic_loss, epoch)
         self.add_log("entropy_loss", entropy_loss, epoch)
         self.add_log("a2c_loss", a2c_loss, epoch)
@@ -228,7 +228,7 @@ def run_a2c(cfg, max_grad_norm=0.5):
         entropy_loss = torch.mean(train_workspace['entropy'])
 
         # Store the losses for tensorboard display
-        logger.log_losses(cfg, nb_steps, critic_loss, entropy_loss, a2c_loss)
+        logger.log_losses(nb_steps, critic_loss, entropy_loss, a2c_loss)
 
         # Compute the total loss
         loss = (
