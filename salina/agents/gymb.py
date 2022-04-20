@@ -55,7 +55,7 @@ def _format_frame(frame):
             # Check if it is a LazyFrame from OpenAI Baselines
             o = torch.from_numpy(frame.__array__()).unsqueeze(0).float()
             return o
-        except:
+        except TypeError:
             assert False
 
 
@@ -189,16 +189,19 @@ class GymAgent(TAgent):
         if self.finished[k]:
             assert k in self.last_frame
             rew = _torch_type({"reward": torch.tensor([0.0]).float()})
-            return {
-                **self.last_frame[k],
-                "done": torch.tensor([True]),
-                "initial_state": torch.tensor([False]),
-                "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
-                "timestep": torch.tensor([self.timestep[k]]),
-            }, rew
+            return (
+                {
+                    **self.last_frame[k],
+                    "done": torch.tensor([True]),
+                    "initial_state": torch.tensor([False]),
+                    "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
+                    "timestep": torch.tensor([self.timestep[k]]),
+                },
+                rew,
+            )
         self.timestep[k] += 1
         retour, reward, observation, done = self._make_step(self.envs[k], action, k, save_render)
-        
+
         self.last_frame[k] = observation
         if done:
             self.finished[k] = True
@@ -289,7 +292,12 @@ class AutoResetGymAgent(GymAgent):
             and each environment will have its own seed]. Defaults to True.
         """
         super().__init__(
-            make_env_fn=make_env_fn, make_env_args=make_env_args, n_envs=n_envs,action_string=action_string, output=output, use_seed=use_seed
+            make_env_fn=make_env_fn,
+            make_env_args=make_env_args,
+            n_envs=n_envs,
+            action_string=action_string,
+            output=output,
+            use_seed=use_seed,
         )
 
     def _initialize_envs(self, n):
@@ -342,5 +350,10 @@ class NoAutoResetGymAgent(GymAgent):
 
     def __init__(self, make_env_fn=None, make_env_args={}, n_envs=None, action_string="action", output="env/", use_seed=True):
         super().__init__(
-            make_env_fn=make_env_fn, make_env_args=make_env_args, n_envs=n_envs, action_string=action_string, output=output, use_seed=use_seed
+            make_env_fn=make_env_fn,
+            make_env_args=make_env_args,
+            n_envs=n_envs,
+            action_string=action_string,
+            output=output,
+            use_seed=use_seed,
         )

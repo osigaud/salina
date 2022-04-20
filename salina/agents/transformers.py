@@ -9,7 +9,7 @@
 import torch
 import torch.nn as nn
 
-from salina import Agent, Workspace, get_arguments, get_class, instantiate_class
+from salina import Agent, Workspace
 from salina.agents import Agents
 from typing import Optional, Tuple
 

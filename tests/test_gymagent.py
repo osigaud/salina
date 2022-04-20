@@ -71,7 +71,7 @@ class ActionAgent(Agent):
 
         self.set(("action", t), action)
 
-        
+
 class VAgent(Agent):
     def __init__(self, state_dim, hidden_layers):
         super().__init__()
@@ -225,7 +225,7 @@ def run_a2c(cfg, max_grad_norm=0.5):
 
         # Compute entropy loss
         # entropy_loss = torch.distributions.Categorical(action_probs).entropy().mean()
-        entropy_loss = torch.mean(train_workspace['entropy'])
+        entropy_loss = torch.mean(train_workspace["entropy"])
 
         # Store the losses for tensorboard display
         logger.log_losses(nb_steps, critic_loss, entropy_loss, a2c_loss)
@@ -253,29 +253,28 @@ def run_a2c(cfg, max_grad_norm=0.5):
 
 
 params = {
-    "logger": {"classname": "salina.logger.TFLogger",
-               "log_dir": "./tmp",
-               "verbose": False,
-               # "cache_size": 10000,
-               "every_n_seconds": 10},
+    "logger": {
+        "classname": "salina.logger.TFLogger",
+        "log_dir": "./tmp",
+        "verbose": False,
+        # "cache_size": 10000,
+        "every_n_seconds": 10,
+    },
     "algorithm": {
-        "seed": 2,
+        "seed": 3,
         "n_envs": 8,
-        "n_steps": 200,
+        "n_steps": 5,
         "eval_interval": 2000,
         "nb_evals": 1,
-        "max_epochs": 1000,
+        "max_epochs": 40000,
         "discount_factor": 0.95,
         "entropy_coef": 0.001,
         "critic_coef": 1.0,
         "a2c_coef": 0.1,
         "architecture": {"hidden_size": [25, 25]},
     },
-    "gym_env": {"classname": "__main__.make_gym_env",
-                "env_name": "CartPole-v1",
-                "max_episode_steps": 500},
-    "optimizer": {"classname": "torch.optim.Adam",
-                  "lr": 0.01},
+    "gym_env": {"classname": "__main__.make_gym_env", "env_name": "CartPole-v1", "max_episode_steps": 500},
+    "optimizer": {"classname": "torch.optim.Adam", "lr": 0.01},
 }
 
 if __name__ == "__main__":

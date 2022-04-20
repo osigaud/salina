@@ -105,7 +105,7 @@ class nRemoteParamAgent(Agent):
         Implements a list of agent which are executed aynchronously in another process.
         Each agent can be parametrized by specific parameters and will returns it's own workspace.
         acq_agent : an instance of the agent that will be runned over each processes
-        n_process : 
+        n_process :
         apply_params : a function f(acq_agent, param) => acq_agent
                        Allow to update each of the agent with a specific set of parameters.
         """
@@ -164,7 +164,7 @@ class nRemoteParamAgent(Agent):
 class nRemoteDistinctAgents(Agent):
     """
         Class that allows to evaluate N (different) individuals with m processes
-        Basic usage : 
+        Basic usage :
         remote = nRemoteDistinctAgents(n_process)
         remote(acq_agent_list,)
         The user have to provide:
@@ -178,10 +178,10 @@ class nRemoteDistinctAgents(Agent):
     def __init__(self, n_process: int, name: str = "") -> None:
         """
         Implements a list of agent which are executed aynchronously in another process.
-        Each agent can be parametrized by specific parameters and will returns it's own 
-        workspace. 
+        Each agent can be parametrized by specific parameters and will returns it's own
+        workspace.
         acq_agent : an instance of the agent that will be runned over each processes
-        n_process : 
+        n_process :
         apply_params : a function f(acq_agent, param) => acq_agent
                        Allow to update each of the agent with a specific set of parameters.
         """

@@ -13,7 +13,7 @@ import torch
 from typing import Optional
 
 """ This module provides different ways to store tensors that are more flexible than the torch.Tensor class.
-It also defines the `Workspace` as a dictionary of tensors and a version of the workspace 
+It also defines the `Workspace` as a dictionary of tensors and a version of the workspace
 where tensors are in shared memory for multiprocessing
 """
 
@@ -73,7 +73,7 @@ class SlicedTemporalTensor:
         return torch.cat([self.tensors[k].unsqueeze(0) for k in range(from_time, min(len(self.tensors), to_time))], dim=0)
 
     def set_full(self, value: torch.Tensor, batch_dims: Optional[tuple[int, int]]):
-        """ Set the tensor given a BxTx... tensor. 
+        """ Set the tensor given a BxTx... tensor.
         The input tensor is cut into slices that are stored in a list of tensors
         """
         assert batch_dims is None, "Unable to use batch dimensions with SlicedTemporalTensor"
@@ -132,7 +132,7 @@ class SlicedTemporalTensor:
 
 class CompactTemporalTensor:
     """ A CompactTemporalTensor is a tensor of size TxBx...
-    It behaves like the `SlicedTemporalTensor` but has a fixed size that cannot change. 
+    It behaves like the `SlicedTemporalTensor` but has a fixed size that cannot change.
     It is faster than the SlicedTemporalTensor.
         See `SlicedTemporalTensor`
     """
@@ -183,13 +183,13 @@ class CompactTemporalTensor:
         if batch_dims is None:
             return self.tensor[t]
         else:
-            return self.tensor[t, batch_dims[0]: batch_dims[1]]
+            return self.tensor[t, batch_dims[0] : batch_dims[1]]
 
     def get_full(self, batch_dims):
         if batch_dims is None:
             return self.tensor
         else:
-            return self.tensor[:, batch_dims[0]: batch_dims[1]]
+            return self.tensor[:, batch_dims[0] : batch_dims[1]]
 
     def time_size(self):
         return self.tensor.size()[0]
@@ -206,7 +206,7 @@ class CompactTemporalTensor:
         if batch_dims is None:
             self.tensor = value
         else:
-            self.tensor[:, batch_dims[0]: batch_dims[1]] = value
+            self.tensor[:, batch_dims[0] : batch_dims[1]] = value
 
     def subtime(self, from_t, to_t):
         return CompactTemporalTensor(self.tensor[from_t:to_t])
@@ -218,7 +218,7 @@ class CompactTemporalTensor:
         self.tensor = None
 
     def copy_time(self, from_time, to_time, n_steps):
-        self.tensor[to_time: to_time + n_steps] = self.tensor[from_time: from_time + n_steps]
+        self.tensor[to_time : to_time + n_steps] = self.tensor[from_time : from_time + n_steps]
 
     def zero_grad(self):
         self.tensor = self.tensor.detach()
@@ -238,14 +238,14 @@ class CompactSharedTensor:
         if batch_dims is None:
             self.tensor[t] = value.detach()
         else:
-            self.tensor[t, batch_dims[0]: batch_dims[1]] = value.detach()
+            self.tensor[t, batch_dims[0] : batch_dims[1]] = value.detach()
 
     def get(self, t, batch_dims):
         assert t < self.tensor.size()[0], "Temporal index out of bounds"
         if batch_dims is None:
             return self.tensor[t]
         else:
-            return self.tensor[t, batch_dims[0]: batch_dims[1]]
+            return self.tensor[t, batch_dims[0] : batch_dims[1]]
 
     def to(self, device):
         if device == self.tensor.device:
@@ -284,7 +284,7 @@ class CompactSharedTensor:
         return CompactSharedTensor(t)
 
     def copy_time(self, from_time, to_time, n_steps):
-        self.tensor[to_time : to_time + n_steps] = self.tensor[from_time: from_time + n_steps]
+        self.tensor[to_time : to_time + n_steps] = self.tensor[from_time : from_time + n_steps]
 
     def zero_grad(self):
         pass
@@ -298,10 +298,10 @@ def take_per_row_strided(a, index, num_elem=2):
 
 
 class Workspace:
-    """ Workspace is the most important class in `SaLinA`. 
-    It correponds to a collection of tensors 
+    """ Workspace is the most important class in `SaLinA`.
+    It correponds to a collection of tensors
     ('SlicedTemporalTensor`, `CompactTemporalTensor` or ` CompactSharedTensor`).
-    In the majority of cases, we consider that all the tensors have the same time and batch sizes 
+    In the majority of cases, we consider that all the tensors have the same time and batch sizes
     (but it is not mandatory for most of the functions)
     """
 
@@ -309,7 +309,7 @@ class Workspace:
         """ Create an empty workspace
 
         Args:
-            workspace (Workspace, optional): If specified, it creates a copy of the workspace 
+            workspace (Workspace, optional): If specified, it creates a copy of the workspace
         (where tensors are cloned as CompactTemporalTensors)
         """
         self.variables = {}
@@ -437,7 +437,7 @@ class Workspace:
         return self.select_batch(who)
 
     def copy_time(self, from_time: int, to_time: int, n_steps: int, var_names: Optional[list[str]] = None):
-        """ Copy all the variables values from time `from_time` to `from_time+n_steps` 
+        """ Copy all the variables values from time `from_time` to `from_time+n_steps`
         to `to_time` to `to_time+n_steps`
         It can be restricted to specific variables using `var_names`.
         """
@@ -468,7 +468,7 @@ class Workspace:
 
     # Static function
     def cat_batch(self, workspaces: list[Workspace]) -> Workspace:
-        """ Concatenate multiple workspaces over the batch dimension. 
+        """ Concatenate multiple workspaces over the batch dimension.
         The workspaces must have the same time dimension.
         """
 
@@ -493,7 +493,9 @@ class Workspace:
             if var_names is None or k in var_names:
                 if _ts is None:
                     _ts = v.time_size()
-                assert _ts == v.time_size(), "Variables must have the same time size: " + str(_ts) + " vs " + str(v.time_size())
+                assert _ts == v.time_size(), (
+                    "Variables must have the same time size: " + str(_ts) + " vs " + str(v.time_size())
+                )
 
         for k, v in self.variables.items():
             if var_names is None or k in var_names:
@@ -514,7 +516,7 @@ class Workspace:
         return workspace
 
     def _convert_to_shared_workspace(self, n_repeat=1, time_size=None):
-        """ INTERNAL METHOD. 
+        """ INTERNAL METHOD.
         It converts a workspace to a shared worspace, by repeating this workspace n times on the batch dimension
         It also automatically adapts the time_size if specified (used in NRemoteAgent.create)
         """
@@ -608,8 +610,8 @@ class Workspace:
 
 
 class _SplitSharedWorkspace:
-    """ This is a view over a Workspace, restricted to particular batch dimensions. 
-    It is used when multiple agents are reading/writing in the same workspace 
+    """ This is a view over a Workspace, restricted to particular batch dimensions.
+    It is used when multiple agents are reading/writing in the same workspace
     but for specific batch dimensions (see NRemoteAgent)
     """
 

@@ -11,8 +11,6 @@ import time
 import torch
 import torch.nn as nn
 
-import salina
-
 
 class Agent(nn.Module):
     """ An `Agent` is a `torch.nn.Module` that reads and writes into a `salina.Workspace`
@@ -146,7 +144,6 @@ class Agent(nn.Module):
         if n == self._name:
             return [self]
         return []
-
 
     def save_model(self, filename) -> None:
         """

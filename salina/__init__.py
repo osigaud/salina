@@ -5,11 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 #
 
-import os
-
-from .agent import Agent, TAgent
-from .workspace import Workspace
-
 trace_workspace = False
 trace = []
 trace_maximum_size = 10000

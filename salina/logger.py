@@ -6,20 +6,13 @@
 #
 
 import bz2
-import copy
-import csv
-import os
-import os.path
 import pickle
-import sqlite3
-import sys
 import time
-from datetime import datetime
 
 import numpy as np
 import pandas as pd
-import torch
-from omegaconf import DictConfig, OmegaConf
+
+from omegaconf import DictConfig
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
@@ -448,7 +441,7 @@ def read_log(directory, use_bz2=True, debug=False):
                         while len(values[name]) < iteration + 1:
                             values[name].append(None)
                         values[name][iteration] = value
-    except:
+    except pickle.PickleError:
         f.close()
     f = open(directory + "/params.pickle", "rb")
     params = pickle.load(f)

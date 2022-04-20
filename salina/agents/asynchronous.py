@@ -5,14 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 #
 
-import copy
-import time
-
 import torch
 import torch.multiprocessing as mp
 
 from salina import Agent
-from salina.workspace import Workspace, _SplitSharedWorkspace
+from salina.workspace import Workspace
 
 
 def f(agent, in_queue, out_queue):
@@ -86,7 +83,7 @@ class AsynchronousAgent(Agent):
                     r = self.o_queue.get()
                 self._workspace = workspace.to("cpu")
             except:
-                pass
+                pass  # TODO: shouldn't we assert False?
         return self._is_running
 
     def get_workspace(self):

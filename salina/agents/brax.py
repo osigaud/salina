@@ -5,9 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 #
 
-import numpy as np
 import torch
-from brax.envs import _envs, create_gym_env
+from brax.envs import create_gym_env
 from brax.envs.to_torch import JaxToTorchWrapper
 
 from salina import TAgent

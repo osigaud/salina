@@ -14,6 +14,7 @@ import torch.multiprocessing as mp
 from salina import Agent
 from salina.workspace import Workspace, _SplitSharedWorkspace
 
+
 # Unused???
 def f(agent, in_queue, out_queue, seed, verbose):
     """The function that is executed in a single process"""
