@@ -8,7 +8,7 @@
 import torch
 import torch.nn as nn
 
-from salina import Agent, TAgent
+from salina.agent import Agent, TAgent
 
 
 class Agents(Agent):

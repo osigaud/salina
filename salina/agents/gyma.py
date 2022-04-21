@@ -8,7 +8,7 @@
 import numpy as np
 import torch
 
-from salina import TAgent
+from salina.agent import TAgent
 import gym
 
 

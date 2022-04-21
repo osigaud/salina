@@ -11,7 +11,7 @@ import time
 import torch
 import torch.multiprocessing as mp
 
-from salina import Agent
+from salina.agent import Agent
 from salina.workspace import Workspace, _SplitSharedWorkspace
 
 

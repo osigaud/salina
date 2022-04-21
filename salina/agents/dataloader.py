@@ -11,7 +11,7 @@ from gym.utils import seeding
 
 # from torch.utils.data import DataLoader
 
-from salina import Agent
+from salina.agent import Agent
 
 
 class ShuffledDatasetAgent(Agent):

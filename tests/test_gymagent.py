@@ -2,10 +2,12 @@ import sys
 import os
 
 import gym
+import time
 
 from gym.wrappers import TimeLimit
 from omegaconf import OmegaConf
-from salina import instantiate_class, get_arguments, get_class, Workspace
+from salina import instantiate_class, get_arguments, get_class
+from salina.workspace import Workspace
 from salina.agents import Agents, TemporalAgent
 
 import torch
@@ -255,13 +257,13 @@ def run_a2c(cfg, max_grad_norm=0.5):
 params = {
     "logger": {
         "classname": "salina.logger.TFLogger",
-        "log_dir": "./tmp",
+        "log_dir": "./tmp/" + str(time.time()),
         "verbose": False,
         # "cache_size": 10000,
         "every_n_seconds": 10,
     },
     "algorithm": {
-        "seed": 3,
+        "seed": 5,
         "n_envs": 8,
         "n_steps": 5,
         "eval_interval": 2000,
