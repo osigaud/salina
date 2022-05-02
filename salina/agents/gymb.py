@@ -8,7 +8,7 @@
 import numpy as np
 import torch
 
-from salina import TAgent
+from salina.agent import TAgent
 import gym
 
 
@@ -249,6 +249,7 @@ class GymAgent(TAgent):
             self.set_obs(observations, t)
             if t > 0:
                 self.set_reward(rewards, t - 1)
+                self.set_reward(rewards, t)
 
     def is_continuous_action(self):
         return isinstance(self.action_space, gym.spaces.Box)
@@ -342,6 +343,7 @@ class AutoResetGymAgent(GymAgent):
         self.set_obs(observations, t)
         if t > 0:
             self.set_reward(rewards, t - 1)
+            self.set_reward(rewards, t)
 
 
 class NoAutoResetGymAgent(GymAgent):
