@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 
 from salina.agent import Agent
-from salina.agents.gyma import AutoResetGymAgent, NoAutoResetGymAgent
+from salina.agents.gymb import AutoResetGymAgent, NoAutoResetGymAgent
 
 
 def build_backbone(sizes, activation):
@@ -154,7 +154,11 @@ def setup_optimizers(cfg, action_agent, critic_agent):
 
 def compute_critic_loss(cfg, reward, done, critic):
     # Compute temporal difference
-    target = reward[1:] + cfg.algorithm.discount_factor * critic[1:].detach() * (1 - done[1:].float())
+    print(reward[0:])
+    print(f"reward: {reward[0:].shape}")
+    print(f"done: {done[1:].shape}")
+    print(f"critic: {critic[1:].shape}")
+    target = reward[0:] + cfg.algorithm.discount_factor * critic[1:].detach() * (1 - done[1:].float())
     td = target - critic[:-1]
 
     # Compute critic loss
@@ -213,6 +217,9 @@ def run_a2c(cfg, max_grad_norm=0.5):
         tcritic_agent(train_workspace, n_steps=cfg.algorithm.n_steps)
         nb_steps += cfg.algorithm.n_steps * cfg.algorithm.n_envs
 
+        obs = train_workspace["env/env_obs"]
+        print(f"obs: {obs[0:].shape}")
+
         critic, done, reward, action = train_workspace["critic", "env/done", "env/reward", "action"]
         if train_env_agent.is_continuous_action():
             # Get relevant tensors (size are timestep x n_envs x ....)
@@ -265,7 +272,7 @@ params = {
     "algorithm": {
         "seed": 5,
         "n_envs": 8,
-        "n_steps": 5,
+        "n_steps": 20,
         "eval_interval": 2000,
         "nb_evals": 1,
         "max_epochs": 40000,

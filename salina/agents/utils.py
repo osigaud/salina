@@ -79,7 +79,7 @@ class TemporalAgent(Agent):
             stop_variable ([type], optional): if True everywhere (at time t), execution is stopped. Defaults to None = not used.
         """
 
-        assert not (n_steps is None and stop_variable is None)
+        assert (n_steps is not None or stop_variable is not None)
         _t = t
         while True:
             self.agent(workspace, t=_t, **kwargs)

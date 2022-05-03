@@ -485,8 +485,8 @@ class Workspace:
             workspace.set_full(k, v)
         return workspace
 
-    def copy_n_last_steps(self, n: int, var_names: Optional[list[str]] = None):
-        """ Copy the n last timesteps of each variables to the n first timesteps.
+    def copy_n_last_steps(self, n: int, var_names: Optional[list[str]] = None) -> None:
+        """ Copy the n last timesteps of each variable to the n first timesteps.
         """
         _ts = None
         for k, v in self.variables.items():
@@ -517,7 +517,7 @@ class Workspace:
 
     def _convert_to_shared_workspace(self, n_repeat=1, time_size=None):
         """ INTERNAL METHOD.
-        It converts a workspace to a shared worspace, by repeating this workspace n times on the batch dimension
+        It converts a workspace to a shared workspace, by repeating this workspace n times on the batch dimension
         It also automatically adapts the time_size if specified (used in NRemoteAgent.create)
         """
 

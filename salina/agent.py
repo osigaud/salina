@@ -80,7 +80,7 @@ class Agent(nn.Module):
         return False
 
     def forward(self, **kwargs):
-        """ The generic function to overrride when defining a new agent
+        """ The generic function to override when defining a new agent
         """
         raise NotImplementedError
 
@@ -163,7 +163,8 @@ class Agent(nn.Module):
 
 
 class TAgent(Agent):
-    """ `TAgent` is used as a convention to represent agents that use a time index in their `__call__` function (not mandatory)
+    """ `TAgent` is used as a convention to represent agents
+    that use a time index in their `__call__` function (not mandatory)
     """
 
     def forward(self, t, **kwargs):

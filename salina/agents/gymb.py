@@ -142,25 +142,22 @@ class GymAgent(TAgent):
             image = env.render(mode="image").unsqueeze(0)
             observation["rendering"] = image
 
-        done = torch.tensor([False])
-        initial_state = torch.tensor([True])
         self.finished[k] = False
         self.timestep[k] = 0
-        timestep = torch.tensor([self.timestep[k]])
 
         ret = {
             **observation,
-            "done": done,
-            "initial_state": initial_state,
-            "timestep": timestep,
-            "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
+            "done": torch.tensor([False]),
+            "initial_state": torch.tensor([True]),
+            "timestep": torch.tensor([self.timestep[k]]),
+            "cumulated_reward": torch.tensor([0.0]).float(),
         }
         return _torch_type(ret), observation
 
     def _reset(self, k, save_render):
-        retour, observation = self._common_reset(k, save_render)
+        full_obs, observation = self._common_reset(k, save_render)
         self.last_frame[k] = observation
-        return retour
+        return full_obs
 
     def _make_step(self, env, action, k, save_render):
         action = _convert_action(action)
@@ -188,24 +185,25 @@ class GymAgent(TAgent):
     def _step(self, k, action, save_render):
         if self.finished[k]:
             assert k in self.last_frame
-            rew = _torch_type({"reward": torch.tensor([0.0]).float()})
+            # rew = _torch_type({"reward": torch.tensor([0.0]).float()})
             return (
                 {
                     **self.last_frame[k],
                     "done": torch.tensor([True]),
+                    "reward": self.last_reward[k],
                     "initial_state": torch.tensor([False]),
                     "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
                     "timestep": torch.tensor([self.timestep[k]]),
                 },
-                rew,
             )
         self.timestep[k] += 1
-        retour, reward, observation, done = self._make_step(self.envs[k], action, k, save_render)
+        full_obs, reward, observation, done = self._make_step(self.envs[k], action, k, save_render)
 
         self.last_frame[k] = observation
+        self.last_reward[k] = reward
         if done:
             self.finished[k] = True
-        return retour, reward
+        return full_obs, reward
 
     def set_obs(self, observations, t):
         observations = _torch_cat_dict(observations)
@@ -215,8 +213,6 @@ class GymAgent(TAgent):
     def set_reward(self, rewards, t):
         rewards = _torch_cat_dict(rewards)
         for k in rewards:
-            # print((self.output + k, t))
-            # print(rewards[k])
             self.set((self.output + k, t), rewards[k].to(self.ghost_params.device))
 
     def forward(self, t=0, save_render=False, **kwargs):
@@ -233,9 +229,7 @@ class GymAgent(TAgent):
             for k, e in enumerate(self.envs):
                 obs = self._reset(k, save_render)
                 observations.append(obs)
-            observations = _torch_cat_dict(observations)
-            for k in observations:
-                self.set((self.output + k, t), observations[k].to(self.ghost_params.device))
+            self.set_obs(observations, t)
         else:
             assert t > 0
             action = self.get((self.input, t - 1))
@@ -249,7 +243,6 @@ class GymAgent(TAgent):
             self.set_obs(observations, t)
             if t > 0:
                 self.set_reward(rewards, t - 1)
-                self.set_reward(rewards, t)
 
     def is_continuous_action(self):
         return isinstance(self.action_space, gym.spaces.Box)
@@ -287,7 +280,7 @@ class AutoResetGymAgent(GymAgent):
             make_env_fn ([function that returns a gym.Env]): The function to create a single gym environments
             make_env_args (dict): The arguments of the function that creates a gym.Env
             n_envs ([int]): The number of environments to create.
-            input (str, optional): [the name of the action variable in the workspace]. Defaults to "action".
+            action_string (str, optional): [the name of the action variable in the workspace]. Defaults to "action".
             output (str, optional): [the output prefix of the environment]. Defaults to "env/".
             use_seed (bool, optional): [If True, then the seed is chained to the environments,
             and each environment will have its own seed]. Defaults to True.
@@ -304,18 +297,19 @@ class AutoResetGymAgent(GymAgent):
     def _initialize_envs(self, n):
         self._common_init(n)
         self.is_running = [False for _ in range(n)]
+        self.previous_reward = [0 for _ in range(n)]
 
     def _reset(self, k, save_render):
         self.is_running[k] = True
-        retour, _ = self._common_reset(k, save_render)
-        return retour
+        full_obs, _ = self._common_reset(k, save_render)
+        return full_obs
 
     def _step(self, k, action, save_render):
         self.timestep[k] += 1
-        retour, reward, _, done = self._make_step(self.envs[k], action, k, save_render)
+        full_obs, reward, _, done = self._make_step(self.envs[k], action, k, save_render)
         if done:
             self.is_running[k] = False
-        return retour, reward
+        return full_obs, reward
 
     def forward(self, t=0, save_render=False, **kwargs):
         """
@@ -330,20 +324,21 @@ class AutoResetGymAgent(GymAgent):
             if not self.is_running[k] or t == 0:
                 observations.append(self._reset(k, save_render))
                 if t > 0:
-                    rew = _torch_type({"reward": torch.tensor([0.0]).float()})
+                    rew = self.previous_reward[k]
                     rewards.append(rew)
             else:
                 assert t > 0
                 action = self.get((self.input, t - 1))
                 assert action.size()[0] == self.n_envs, "Incompatible number of envs"
                 obs, reward = self._step(k, action[k], save_render)
+                self.previous_reward[k] = reward
                 observations.append(obs)
                 rewards.append(reward)
 
         self.set_obs(observations, t)
         if t > 0:
             self.set_reward(rewards, t - 1)
-            self.set_reward(rewards, t)
+
 
 
 class NoAutoResetGymAgent(GymAgent):
