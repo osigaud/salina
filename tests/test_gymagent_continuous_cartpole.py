@@ -2,16 +2,18 @@ import sys
 import os
 
 import gym
+import my_gym
 import time
 
 from gym.wrappers import TimeLimit
 from omegaconf import OmegaConf
 from salina import instantiate_class, get_arguments, get_class
 from salina.workspace import Workspace
-from salina.agents import Agents, TemporalAgent
+from salina.agents import Agents, TemporalAgent, PrintAgent
 
 import torch
 import torch.nn as nn
+from torch.distributions.normal import Normal
 
 from salina.agent import Agent
 from salina.agents.gymb import AutoResetGymAgent, NoAutoResetGymAgent
@@ -44,33 +46,32 @@ def _index(tensor_3d, tensor_2d):
     return v
 
 
-class ProbAgent(Agent):
-    def __init__(self, state_dim, hidden_layers, n_action):
-        super().__init__(name="prob_agent")
-        self.model = build_mlp([state_dim] + list(hidden_layers) + [n_action], activation=nn.ReLU())
-
-    def forward(self, t, **kwargs):
-        observation = self.get(("env/env_obs", t))
-        scores = self.model(observation)
-        action_probs = torch.softmax(scores, dim=-1)
-        assert not torch.any(torch.isnan(action_probs)), "Nan Here"
-        self.set(("action_probs", t), action_probs)
-        entropy = torch.distributions.Categorical(action_probs).entropy()
-        self.set(("entropy", t), entropy)
-
-
-class ActionAgent(Agent):
-    def __init__(self):
+class ContinuousActionStateDependentVarianceAgent(Agent):
+    def __init__(self, state_dim, hidden_layers, action_dim, **kwargs):
         super().__init__()
+        backbone_dim = [state_dim] + list(hidden_layers)
+        self.layers = build_backbone(backbone_dim, activation=nn.ReLU())
+        self.last_layer = nn.Linear(hidden_layers[-1], action_dim)
+        self.mean_layer = nn.Tanh()
+        # std must be positive
+        self.std_layer = nn.Softplus()
+        self.backbone = nn.Sequential(*self.layers)
 
     def forward(self, t, stochastic, **kwargs):
-        probs = self.get(("action_probs", t))
+        obs = self.get(("env/env_obs", t))
+        backbone_output = self.backbone(obs)
+        last = self.last_layer(backbone_output)
+        mean = self.mean_layer(last)
+        dist = Normal(mean, self.std_layer(last))
+        self.set(("entropy", t), dist.entropy())
         if stochastic:
-            action = torch.distributions.Categorical(probs).sample()
+            action = torch.tanh(dist.sample())  # valid actions are supposed to be in [-1,1] range
         else:
-            action = probs.argmax(1)
-
+            action = torch.tanh(mean)  # valid actions are supposed to be in [-1,1] range
+        logp_pi = dist.log_prob(action).sum(axis=-1)
+        # print(f"action: {action}")
         self.set(("action", t), action)
+        self.set(("action_logprobs", t), logp_pi)
 
 
 class VAgent(Agent):
@@ -125,10 +126,11 @@ class NoAutoResetEnvAgent(NoAutoResetGymAgent):
 # Create the A2C Agent
 def create_a2c_agent(cfg, train_env_agent, eval_env_agent):
     observation_size, n_actions = train_env_agent.get_obs_and_actions_sizes()
-    param_agent = ProbAgent(observation_size, cfg.algorithm.architecture.hidden_size, n_actions)
-    action_agent = ActionAgent()
-    tr_agent = Agents(train_env_agent, param_agent, action_agent)
-    ev_agent = Agents(eval_env_agent, param_agent, action_agent)
+    action_agent = ContinuousActionStateDependentVarianceAgent(observation_size, cfg.algorithm.architecture.hidden_size, n_actions)
+    # print_agent = PrintAgent(*{"critic", "env/reward", "env/done", "action", "env/env_obs"})
+    # print_agent = PrintAgent(*{"env/done", "action", "env/env_obs"})
+    tr_agent = Agents(train_env_agent, action_agent)
+    ev_agent = Agents(eval_env_agent, action_agent)
 
     critic_agent = VAgent(observation_size, cfg.algorithm.architecture.hidden_size)
 
@@ -136,7 +138,7 @@ def create_a2c_agent(cfg, train_env_agent, eval_env_agent):
     train_agent = TemporalAgent(tr_agent)
     eval_agent = TemporalAgent(ev_agent)
     train_agent.seed(cfg.algorithm.seed)
-    return train_agent, eval_agent, param_agent, critic_agent
+    return train_agent, eval_agent, critic_agent
 
 
 def make_gym_env(max_episode_steps, env_name):
@@ -186,7 +188,7 @@ def run_a2c(cfg, max_grad_norm=0.5):
     eval_env_agent = NoAutoResetEnvAgent(cfg, n_envs=cfg.algorithm.nb_evals)
 
     # 3) Create the A2C Agent
-    a2c_agent, eval_agent, param_agent, critic_agent = create_a2c_agent(cfg, train_env_agent, eval_env_agent)
+    a2c_agent, eval_agent, critic_agent = create_a2c_agent(cfg, train_env_agent, eval_env_agent)
 
     # 4) Create the temporal critic agent to compute critic values over the workspace
     tcritic_agent = TemporalAgent(critic_agent)
@@ -198,7 +200,7 @@ def run_a2c(cfg, max_grad_norm=0.5):
     train_workspace = Workspace()  # Used for training
 
     # 6) Configure the optimizer over the a2c agent
-    optimizer = setup_optimizers(cfg, param_agent, critic_agent)
+    optimizer = setup_optimizers(cfg, a2c_agent, critic_agent)
     nb_steps = 0
     tmp_steps = 0
 
@@ -247,7 +249,7 @@ def run_a2c(cfg, max_grad_norm=0.5):
 
         optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(param_agent.parameters(), max_grad_norm)
+        torch.nn.utils.clip_grad_norm_(a2c_agent.parameters(), max_grad_norm)
         optimizer.step()
 
         if nb_steps - tmp_steps > cfg.algorithm.eval_interval:
@@ -270,8 +272,8 @@ params = {
     },
     "algorithm": {
         "seed": 4,
-        "n_envs": 8,
-        "n_steps": 20,
+        "n_envs": 1,
+        "n_steps": 8,
         "eval_interval": 2000,
         "nb_evals": 1,
         "max_epochs": 40000,
@@ -281,7 +283,7 @@ params = {
         "a2c_coef": 0.1,
         "architecture": {"hidden_size": [25, 25]},
     },
-    "gym_env": {"classname": "__main__.make_gym_env", "env_name": "CartPole-v1", "max_episode_steps": 500},
+    "gym_env": {"classname": "__main__.make_gym_env", "env_name": "CartPoleContinuous-v1", "max_episode_steps": 500},
     "optimizer": {"classname": "torch.optim.Adam", "lr": 0.01},
 }
 
