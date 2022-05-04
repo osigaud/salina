@@ -195,11 +195,6 @@ def compute_critic_loss(cfg, reward, ignore, critic):
     return critic_loss, td
 
 
-def compute_actor_loss_continuous(action_logp, td):
-    a2c_loss = action_logp[:-1] * td.detach()
-    return a2c_loss.mean()
-
-
 def compute_actor_loss_discrete(action_probs, action, td):
     action_logp = _index(action_probs, action).log()
     a2c_loss = action_logp[:-1] * td.detach()
@@ -250,7 +245,7 @@ def run_a2c(cfg, max_grad_norm=0.5):
 
         train_workspace = get_transitions(train_workspace)
 
-        critic, done, reward, action, action_probs  = train_workspace["critic", "env/done", "env/reward", "action", "action_probs"]
+        critic, done, reward, action, action_probs = train_workspace["critic", "env/done", "env/reward", "action", "action_probs"]
 
         truncated = (
                 train_workspace["env/timestep"] == cfg.gym_env.max_episode_steps
@@ -258,7 +253,10 @@ def run_a2c(cfg, max_grad_norm=0.5):
         ignore = torch.logical_or(~done, truncated)
 
         critic_loss, td = compute_critic_loss(cfg, reward, ignore, critic)
-        a2c_loss = compute_actor_loss_discrete(action_probs, action, td)
+
+        action_logp = action_probs.gather(1, action.view(-1, 1)).squeeze().log()
+        a2c_loss = action_logp[:-1] * td.detach()
+        a2c_loss = a2c_loss.mean()
 
         # Compute entropy loss
         entropy_loss = torch.mean(train_workspace["entropy"])
