@@ -249,15 +249,14 @@ def run_a2c(cfg, max_grad_norm=0.5):
         # print(f"obs: {obs[0:].shape}")
 
         train_workspace = get_transitions(train_workspace)
+
+        critic, done, reward, action, action_probs  = train_workspace["critic", "env/done", "env/reward", "action", "action_probs"]
+
         truncated = (
                 train_workspace["env/timestep"] == cfg.gym_env.max_episode_steps
         )
-
-        critic, done, reward, action = train_workspace["critic", "env/done", "env/reward", "action"]
-        action_probs = train_workspace["action_probs"]
-
         ignore = torch.logical_or(~done, truncated)
-        
+
         critic_loss, td = compute_critic_loss(cfg, reward, ignore, critic)
         a2c_loss = compute_actor_loss_discrete(action_probs, action, td)
 
