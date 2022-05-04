@@ -34,7 +34,7 @@ def cumulated_reward(reward, done):
 
 
 def temporal_difference(critic, reward, done, discount_factor):
-    target = discount_factor * critic[1:].detach() * (1.0 - done[1:].float()) + reward[1:]
+    target =  reward[:-1] + discount_factor * critic[1:].detach() * (1.0 - done[1:].float())
     td = target - critic[:-1]
     to_add = torch.zeros(1, td.size()[1]).to(td.device)
     td = torch.cat([td, to_add], dim=0)
@@ -46,7 +46,7 @@ def doubleqlearning_temporal_difference(q, action, q_target, reward, done, disco
     q_target_max = _index(q_target, action_max).detach()[1:]
 
     done = done.float()
-    target = reward[1:] + discount_factor * q_target_max * (1 - done[1:])
+    target = reward[:-1] + discount_factor * q_target_max * (1 - done[1:])
 
     q = _index(q, action)[:-1]
     td = target - q
@@ -56,7 +56,7 @@ def doubleqlearning_temporal_difference(q, action, q_target, reward, done, disco
 
 
 def gae(critic, reward, done, discount_factor, gae_coef):
-    r = reward[1:]
+    r = reward[:-1]
     v = critic[1:].detach()
     d = done.float()
     td = r + discount_factor * (1.0 - d[1:]) * v - critic[:-1]
@@ -85,7 +85,7 @@ def compute_reinforce_loss(reward, action_probabilities, baseline, action, done,
     assert v_done.eq(1.0).all()
     max_trajectories_length = trajectories_length.max().item()
     # Shorten trajectories for faster computation
-    reward = reward[:max_trajectories_length]
+    reward = reward[:-max_trajectories_length]
     action_probabilities = action_probabilities[:max_trajectories_length]
     baseline = baseline[:max_trajectories_length]
     action = action[:max_trajectories_length]
