@@ -34,18 +34,6 @@ def build_mlp(sizes, activation, output_activation=nn.Identity()):
     return nn.Sequential(*layers)
 
 
-def _index(tensor_3d, tensor_2d):
-    """
-    This function is used to index a 3d tensors using a 2d tensor
-    """
-    x, y, z = tensor_3d.size()
-    t = tensor_3d.reshape(x * y, z)
-    tt = tensor_2d.reshape(x * y)
-    v = t[torch.arange(x * y), tt]
-    v = v.reshape(x, y)
-    return v
-
-
 class ContinuousActionStateDependentVarianceAgent(Agent):
     def __init__(self, state_dim, hidden_layers, action_dim, **kwargs):
         super().__init__()
@@ -175,12 +163,6 @@ def compute_actor_loss_continuous(action_logp, td):
     return a2c_loss.mean()
 
 
-def compute_actor_loss_discrete(action_probs, action, td):
-    action_logp = _index(action_probs, action).log()
-    a2c_loss = action_logp[:-1] * td.detach()
-    return a2c_loss.mean()
-
-
 def run_a2c(cfg, max_grad_norm=0.5):
     # 1)  Build the  logger
     logger = Logger(cfg)
@@ -221,7 +203,7 @@ def run_a2c(cfg, max_grad_norm=0.5):
         nb_steps += cfg.algorithm.n_steps * cfg.algorithm.n_envs
 
         obs = train_workspace["env/env_obs"]
-        # print(f"obs: {obs[0:].shape}")
+        print(f"epoch: {epoch}: obs: {obs[0:].shape}")
 
         critic, done, reward, action = train_workspace["critic", "env/done", "env/reward", "action"]
         if train_env_agent.is_continuous_action():
@@ -233,7 +215,7 @@ def run_a2c(cfg, max_grad_norm=0.5):
         else:
             action_probs = train_workspace["action_probs"]
             critic_loss, td = compute_critic_loss(cfg, reward, done, critic)
-            a2c_loss = compute_actor_loss_discrete(action_probs, action, td)
+            a2c_loss = compute_actor_loss_continuous(action_probs, action, td)
 
         # Compute entropy loss
         # entropy_loss = torch.distributions.Categorical(action_probs).entropy().mean()
@@ -274,7 +256,7 @@ params = {
     "algorithm": {
         "seed": 6,
         "n_envs": 1,
-        "n_steps": 8,
+        "n_steps": 5,
         "eval_interval": 10,
         "nb_evals": 10,
         "gae": 0.8,
@@ -286,7 +268,7 @@ params = {
         "architecture": {"hidden_size": [64, 64]},
     },
     "gym_env": {"classname": "__main__.make_gym_env",
-                "env_name": "Pendulum-v0",
+                "env_name": "Pendulum-v1",
                 "max_episode_steps": 200},
     "optimizer": {"classname": "torch.optim.RMSprop",
                   "lr": 0.004},

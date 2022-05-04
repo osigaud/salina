@@ -17,6 +17,37 @@ from salina.agent import Agent
 from salina.agents.gymb import AutoResetGymAgent, NoAutoResetGymAgent
 
 
+def get_transitions(workspace):
+    """
+    Takes in a workspace from salina:
+    [(step1),(step2),(step3), ... ]
+    return a workspace of transitions :
+    [
+        [step1,step2],
+        [step2,step3]
+        ...
+    ]
+    Filters every transitions [step_final,step_initial]
+    """
+    transitions = {}
+    done = workspace["env/done"][:-1]
+    for key in workspace.keys():
+        array = workspace[key]
+        # removes transitions (s_terminal -> s_initial)
+
+        if key == "env/env_obs":
+            x = array[:-1][~done]
+            x_next = array[1:][~done]
+            transition = torch.stack([x, x_next])
+            transitions["transitions"] = transition
+        else:
+            x = array[:-1][~done]
+            transitions[key] = x
+    workspace = Workspace()
+    for k, v in transitions.items():
+        workspace.set_full(k, v)
+    return workspace
+
 def build_backbone(sizes, activation):
     layers = []
     for j in range(len(sizes) - 2):
@@ -128,8 +159,8 @@ def create_a2c_agent(cfg, train_env_agent, eval_env_agent):
     param_agent = ProbAgent(observation_size, cfg.algorithm.architecture.hidden_size, n_actions)
     action_agent = ActionAgent()
     # print_agent = PrintAgent(*{"critic", "env/reward", "env/done", "action", "env/env_obs"})
-    print_agent = PrintAgent(*{"env/done", "action", "env/env_obs"})
-    tr_agent = Agents(train_env_agent, param_agent, action_agent, print_agent)
+    # print_agent = PrintAgent(*{"transitions", "action", "env/done"})
+    tr_agent = Agents(train_env_agent, param_agent, action_agent)
     ev_agent = Agents(eval_env_agent, param_agent, action_agent)
 
     critic_agent = VAgent(observation_size, cfg.algorithm.architecture.hidden_size)
@@ -153,13 +184,9 @@ def setup_optimizers(cfg, action_agent, critic_agent):
     return optimizer
 
 
-def compute_critic_loss(cfg, reward, done, critic):
+def compute_critic_loss(cfg, reward, ignore, critic):
     # Compute temporal difference
-    # print(reward[0:])
-    # print(f"reward: {reward[:-1].shape}")
-    # print(f"done: {done[1:].shape}")
-    # print(f"critic: {critic[1:].shape}")
-    target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (1 - done[1:].float())
+    target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (1 - ignore[1:].float())
     td = target - critic[:-1]
 
     # Compute critic loss
@@ -218,23 +245,23 @@ def run_a2c(cfg, max_grad_norm=0.5):
         tcritic_agent(train_workspace, n_steps=cfg.algorithm.n_steps)
         nb_steps += cfg.algorithm.n_steps * cfg.algorithm.n_envs
 
-        obs = train_workspace["env/env_obs"]
+        # obs = train_workspace["env/env_obs"]
         # print(f"obs: {obs[0:].shape}")
 
+        train_workspace = get_transitions(train_workspace)
+        truncated = (
+                train_workspace["env/timestep"] == cfg.gym_env.max_episode_steps
+        )
+
         critic, done, reward, action = train_workspace["critic", "env/done", "env/reward", "action"]
-        if train_env_agent.is_continuous_action():
-            # Get relevant tensors (size are timestep x n_envs x ....)
-            action_logp = train_workspace["action_logprobs"]
-            # Compute critic loss
-            critic_loss, td = compute_critic_loss(cfg, reward, done, critic)
-            a2c_loss = compute_actor_loss_continuous(action_logp, td)
-        else:
-            action_probs = train_workspace["action_probs"]
-            critic_loss, td = compute_critic_loss(cfg, reward, done, critic)
-            a2c_loss = compute_actor_loss_discrete(action_probs, action, td)
+        action_probs = train_workspace["action_probs"]
+
+        ignore = torch.logical_or(~done, truncated)
+        
+        critic_loss, td = compute_critic_loss(cfg, reward, ignore, critic)
+        a2c_loss = compute_actor_loss_discrete(action_probs, action, td)
 
         # Compute entropy loss
-        # entropy_loss = torch.distributions.Categorical(action_probs).entropy().mean()
         entropy_loss = torch.mean(train_workspace["entropy"])
 
         # Store the losses for tensorboard display

@@ -151,7 +151,7 @@ class GymAgent(TAgent):
             **observation,
             # **next_obs,
             "done": torch.tensor([False]),
-            "initial_state": torch.tensor([True]),
+            # "initial_state": torch.tensor([True]),
             "timestep": torch.tensor([self.timestep[k]]),
             "cumulated_reward": torch.tensor([0.0]).float(),
         }
@@ -181,7 +181,7 @@ class GymAgent(TAgent):
             **observation,
             # **next_obs,
             "done": torch.tensor([done]),
-            "initial_state": torch.tensor([False]),
+            # "initial_state": torch.tensor([False]),
             "cumulated_reward": torch.tensor([self.cumulated_reward[k]]),
             "timestep": torch.tensor([self.timestep[k]]),
         }
@@ -198,7 +198,7 @@ class GymAgent(TAgent):
                     **self.last_frame[k],
                     "done": torch.tensor([True]),
                     "reward": torch.tensor([0.0]).float(),
-                    "initial_state": torch.tensor([False]),
+                    # "initial_state": torch.tensor([False]),
                     "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
                     "timestep": torch.tensor([self.timestep[k]]),
                 }, rew
@@ -356,7 +356,7 @@ class AutoResetGymAgent(GymAgent):
                 observations.append(full_obs)
                 rewards.append(reward)
 
-        # print(f"{t} : obs : {observations}")
+        print(f"{t} : obs : {observations}")
         if t > 0:
             # self.set_next_obs(observations, t - 1)
             self.set_reward(rewards, t - 1)
