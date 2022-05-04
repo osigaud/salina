@@ -33,7 +33,7 @@ class Agents(Agent):
         for a in self.agents:
             a(workspace, **kwargs)
 
-    def forward(**kwargs):
+    def forward(self, **kwargs):
         raise NotImplementedError
 
     def seed(self, seed):
@@ -54,9 +54,6 @@ class Agents(Agent):
 
 class TemporalAgent(Agent):
     """Execute one Agent over multiple timesteps
-
-    Args:
-        Agent ([salina.Agent])
     """
 
     def __init__(self, agent, name=None):
@@ -76,7 +73,8 @@ class TemporalAgent(Agent):
             workspace ([salina.Workspace]):
             t (int, optional): The starting timestep. Defaults to 0.
             n_steps ([type], optional): The number of steps. Defaults to None.
-            stop_variable ([type], optional): if True everywhere (at time t), execution is stopped. Defaults to None = not used.
+            stop_variable ([type], optional): if True everywhere (at time t), execution is stopped.
+            Defaults to None = not used.
         """
 
         assert (n_steps is not None or stop_variable is not None)
@@ -107,14 +105,15 @@ class TemporalAgent(Agent):
 
 class CopyTAgent(Agent):
     """An agent that copies a variable
-
-    Args:
-        input_name ([str]): The variable to copy from
-        output_name ([str]): The variable to copy to
-        detach ([bool]): copy with detach if True
     """
 
     def __init__(self, input_name, output_name, detach=False, name=None):
+        """
+        Args:
+        input_name ([str]): The variable to copy from
+        output_name ([str]): The variable to copy to
+        detach ([bool]): copy with detach if True
+        """
         super().__init__(name=name)
         self.input_name = input_name
         self.output_name = output_name
@@ -141,9 +140,6 @@ class CopyTAgent(Agent):
 
 class PrintAgent(Agent):
     """An agent to generate print in the console (mainly for debugging)
-
-    Args:
-        Agent ([type]): [description]
     """
 
     def __init__(self, *names, name=None):

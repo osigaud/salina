@@ -53,8 +53,7 @@ class ProbAgent(Agent):
         observation = self.get(("env/env_obs", t))
         scores = self.model(observation)
         action_probs = torch.softmax(scores, dim=-1)
-        if torch.any(torch.isnan(action_probs)):
-            print("Nan Here")
+        assert not torch.any(torch.isnan(action_probs)), "Nan Here"
         self.set(("action_probs", t), action_probs)
         entropy = torch.distributions.Categorical(action_probs).entropy()
         self.set(("entropy", t), entropy)
@@ -154,11 +153,11 @@ def setup_optimizers(cfg, action_agent, critic_agent):
 
 def compute_critic_loss(cfg, reward, done, critic):
     # Compute temporal difference
-    print(reward[0:])
-    print(f"reward: {reward[0:].shape}")
-    print(f"done: {done[1:].shape}")
-    print(f"critic: {critic[1:].shape}")
-    target = reward[0:] + cfg.algorithm.discount_factor * critic[1:].detach() * (1 - done[1:].float())
+    # print(reward[0:])
+    # print(f"reward: {reward[:-1].shape}")
+    # print(f"done: {done[1:].shape}")
+    # print(f"critic: {critic[1:].shape}")
+    target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (1 - done[1:].float())
     td = target - critic[:-1]
 
     # Compute critic loss
@@ -218,7 +217,7 @@ def run_a2c(cfg, max_grad_norm=0.5):
         nb_steps += cfg.algorithm.n_steps * cfg.algorithm.n_envs
 
         obs = train_workspace["env/env_obs"]
-        print(f"obs: {obs[0:].shape}")
+        # print(f"obs: {obs[0:].shape}")
 
         critic, done, reward, action = train_workspace["critic", "env/done", "env/reward", "action"]
         if train_env_agent.is_continuous_action():
@@ -270,7 +269,7 @@ params = {
         "every_n_seconds": 10,
     },
     "algorithm": {
-        "seed": 5,
+        "seed": 4,
         "n_envs": 8,
         "n_steps": 20,
         "eval_interval": 2000,
@@ -282,7 +281,7 @@ params = {
         "a2c_coef": 0.1,
         "architecture": {"hidden_size": [25, 25]},
     },
-    "gym_env": {"classname": "__main__.make_gym_env", "env_name": "CartPole-v1", "max_episode_steps": 500},
+    "gym_env": {"classname": "__main__.make_gym_env", "env_name": "Pendulum-v1", "max_episode_steps": 200},
     "optimizer": {"classname": "torch.optim.Adam", "lr": 0.01},
 }
 

@@ -135,7 +135,9 @@ class GymAgent(TAgent):
         observation = _format_frame(o)
 
         if isinstance(observation, torch.Tensor):
+            # next_obs = {"env_next_obs": observation}
             observation = {"env_obs": observation}
+
         else:
             assert isinstance(observation, dict)
         if save_render:
@@ -147,11 +149,13 @@ class GymAgent(TAgent):
 
         ret = {
             **observation,
+            # **next_obs,
             "done": torch.tensor([False]),
             "initial_state": torch.tensor([True]),
             "timestep": torch.tensor([self.timestep[k]]),
             "cumulated_reward": torch.tensor([0.0]).float(),
         }
+        # print(f"common reset : {ret}")
         return _torch_type(ret), observation
 
     def _reset(self, k, save_render):
@@ -166,6 +170,7 @@ class GymAgent(TAgent):
         self.cumulated_reward[k] += reward
         observation = _format_frame(obs)
         if isinstance(observation, torch.Tensor):
+            # next_obs = {"env_next_obs": observation}
             observation = {"env_obs": observation}
         else:
             assert isinstance(observation, dict)
@@ -174,13 +179,15 @@ class GymAgent(TAgent):
             observation["rendering"] = image
         ret = {
             **observation,
+            # **next_obs,
             "done": torch.tensor([done]),
             "initial_state": torch.tensor([False]),
             "cumulated_reward": torch.tensor([self.cumulated_reward[k]]),
             "timestep": torch.tensor([self.timestep[k]]),
         }
+        # print(f"make step : {ret}")
         rew = _torch_type({"reward": torch.tensor([reward]).float()})
-        return _torch_type(ret), rew, observation, done
+        return _torch_type(ret), rew, done, observation
 
     def _step(self, k, action, save_render):
         if self.finished[k]:
@@ -190,17 +197,16 @@ class GymAgent(TAgent):
                 {
                     **self.last_frame[k],
                     "done": torch.tensor([True]),
-                    "reward": self.last_reward[k],
+                    "reward": torch.tensor([0.0]).float(),
                     "initial_state": torch.tensor([False]),
                     "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
                     "timestep": torch.tensor([self.timestep[k]]),
                 },
             )
         self.timestep[k] += 1
-        full_obs, reward, observation, done = self._make_step(self.envs[k], action, k, save_render)
+        full_obs, reward, done, observation = self._make_step(self.envs[k], action, k, save_render)
 
         self.last_frame[k] = observation
-        self.last_reward[k] = reward
         if done:
             self.finished[k] = True
         return full_obs, reward
@@ -209,6 +215,11 @@ class GymAgent(TAgent):
         observations = _torch_cat_dict(observations)
         for k in observations:
             self.set((self.output + k, t), observations[k].to(self.ghost_params.device))
+
+    def set_next_obs(self, observations, t):
+        observations = _torch_cat_dict(observations)
+        for k in observations:
+            self.set(("env/env_next_obs" + k, t), observations[k].to(self.ghost_params.device))
 
     def set_reward(self, rewards, t):
         rewards = _torch_cat_dict(rewards)
@@ -222,6 +233,11 @@ class GymAgent(TAgent):
         """
         if self.envs is None:
             self._initialize_envs(self.n_envs)
+
+        # if t > 0:
+        #    previous_obs = self.get(("env/env_obs", t - 1))
+        #    print(f"previous_obs :{previous_obs}")
+        #    self.set_obs(previous_obs, t - 1)
 
         if t == 0:
             self.timestep = torch.tensor([0 for _ in self.envs])
@@ -240,9 +256,10 @@ class GymAgent(TAgent):
                 obs, reward = self._step(k, action[k], save_render)
                 observations.append(obs)
                 rewards.append(reward)
+            self.set_reward(rewards, t - 1)
             self.set_obs(observations, t)
-            if t > 0:
-                self.set_reward(rewards, t - 1)
+            self.set_reward(rewards, t)
+            # self.set_next_obs(observations, t - 1)
 
     def is_continuous_action(self):
         return isinstance(self.action_space, gym.spaces.Box)
@@ -306,7 +323,7 @@ class AutoResetGymAgent(GymAgent):
 
     def _step(self, k, action, save_render):
         self.timestep[k] += 1
-        full_obs, reward, _, done = self._make_step(self.envs[k], action, k, save_render)
+        full_obs, reward, done, _ = self._make_step(self.envs[k], action, k, save_render)
         if done:
             self.is_running[k] = False
         return full_obs, reward
@@ -323,21 +340,28 @@ class AutoResetGymAgent(GymAgent):
         for k, env in enumerate(self.envs):
             if not self.is_running[k] or t == 0:
                 observations.append(self._reset(k, save_render))
+
                 if t > 0:
+                    # previous_obs = self.get(("env/env_obs", t - 1))
+                    # print(f"previous_obs :{previous_obs}")
+                    # self.set_obs(previous_obs, t - 1)
                     rew = self.previous_reward[k]
                     rewards.append(rew)
             else:
                 assert t > 0
                 action = self.get((self.input, t - 1))
                 assert action.size()[0] == self.n_envs, "Incompatible number of envs"
-                obs, reward = self._step(k, action[k], save_render)
+                full_obs, reward = self._step(k, action[k], save_render)
                 self.previous_reward[k] = reward
-                observations.append(obs)
+                observations.append(full_obs)
                 rewards.append(reward)
 
-        self.set_obs(observations, t)
+        # print(f"{t} : obs : {observations}")
         if t > 0:
+            # self.set_next_obs(observations, t - 1)
             self.set_reward(rewards, t - 1)
+            self.set_reward(rewards, t)
+        self.set_obs(observations, t)
 
 
 

@@ -183,13 +183,13 @@ class CompactTemporalTensor:
         if batch_dims is None:
             return self.tensor[t]
         else:
-            return self.tensor[t, batch_dims[0] : batch_dims[1]]
+            return self.tensor[t, batch_dims[0]: batch_dims[1]]
 
     def get_full(self, batch_dims):
         if batch_dims is None:
             return self.tensor
         else:
-            return self.tensor[:, batch_dims[0] : batch_dims[1]]
+            return self.tensor[:, batch_dims[0]: batch_dims[1]]
 
     def time_size(self):
         return self.tensor.size()[0]
@@ -206,7 +206,7 @@ class CompactTemporalTensor:
         if batch_dims is None:
             self.tensor = value
         else:
-            self.tensor[:, batch_dims[0] : batch_dims[1]] = value
+            self.tensor[:, batch_dims[0]: batch_dims[1]] = value
 
     def subtime(self, from_t, to_t):
         return CompactTemporalTensor(self.tensor[from_t:to_t])
@@ -218,7 +218,7 @@ class CompactTemporalTensor:
         self.tensor = None
 
     def copy_time(self, from_time, to_time, n_steps):
-        self.tensor[to_time : to_time + n_steps] = self.tensor[from_time : from_time + n_steps]
+        self.tensor[to_time: to_time + n_steps] = self.tensor[from_time: from_time + n_steps]
 
     def zero_grad(self):
         self.tensor = self.tensor.detach()
@@ -238,14 +238,14 @@ class CompactSharedTensor:
         if batch_dims is None:
             self.tensor[t] = value.detach()
         else:
-            self.tensor[t, batch_dims[0] : batch_dims[1]] = value.detach()
+            self.tensor[t, batch_dims[0]: batch_dims[1]] = value.detach()
 
     def get(self, t, batch_dims):
         assert t < self.tensor.size()[0], "Temporal index out of bounds"
         if batch_dims is None:
             return self.tensor[t]
         else:
-            return self.tensor[t, batch_dims[0] : batch_dims[1]]
+            return self.tensor[t, batch_dims[0]: batch_dims[1]]
 
     def to(self, device):
         if device == self.tensor.device:
@@ -262,7 +262,7 @@ class CompactSharedTensor:
         if batch_dims is None:
             return self.tensor
         else:
-            return self.tensor[:, batch_dims[0] : batch_dims[1]]
+            return self.tensor[:, batch_dims[0]: batch_dims[1]]
 
     def time_size(self):
         return self.tensor.size()[0]
@@ -274,7 +274,7 @@ class CompactSharedTensor:
         if batch_dims is None:
             self.tensor = value.detach()
         else:
-            self.tensor[:, batch_dims[0] : batch_dims[1]] = value.detach()
+            self.tensor[:, batch_dims[0]: batch_dims[1]] = value.detach()
 
     def clear(self):
         assert False, "Cannot clear a shared tensor"
@@ -284,7 +284,7 @@ class CompactSharedTensor:
         return CompactSharedTensor(t)
 
     def copy_time(self, from_time, to_time, n_steps):
-        self.tensor[to_time : to_time + n_steps] = self.tensor[from_time : from_time + n_steps]
+        self.tensor[to_time: to_time + n_steps] = self.tensor[from_time: from_time + n_steps]
 
     def zero_grad(self):
         pass
@@ -494,14 +494,14 @@ class Workspace:
                 if _ts is None:
                     _ts = v.time_size()
                 assert _ts == v.time_size(), (
-                    "Variables must have the same time size: " + str(_ts) + " vs " + str(v.time_size())
+                     "Variables must have the same time size: " + str(_ts) + " vs " + str(v.time_size())
                 )
 
         for k, v in self.variables.items():
             if var_names is None or k in var_names:
                 self.copy_time(_ts - n, 0, n)
 
-    def zero_grad(self):
+    def zero_grad(self) -> None:
         """ Remove any gradient information
         """
         for k, v in self.variables.items():
@@ -630,7 +630,7 @@ class _SplitSharedWorkspace:
         return self.workspace.keys()
 
     def get_time_truncated(self, var_name, from_time, to_time):
-        assert from_time >= 0 and to_time >= 0 and to_time > from_time
+        assert 0 <= from_time < to_time
         return self.workspace.get_time_truncated(var_name, from_time, to_time, batch_dims=self.batch_dims)
 
     def set_full(self, var_name, value):
