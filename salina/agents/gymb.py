@@ -192,7 +192,7 @@ class GymAgent(TAgent):
     def _step(self, k, action, save_render):
         if self.finished[k]:
             assert k in self.last_frame
-            # rew = _torch_type({"reward": torch.tensor([0.0]).float()})
+            rew = _torch_type({"reward": torch.tensor([0.0]).float()})
             return (
                 {
                     **self.last_frame[k],
@@ -201,7 +201,7 @@ class GymAgent(TAgent):
                     "initial_state": torch.tensor([False]),
                     "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
                     "timestep": torch.tensor([self.timestep[k]]),
-                },
+                }, rew
             )
         self.timestep[k] += 1
         full_obs, reward, done, observation = self._make_step(self.envs[k], action, k, save_render)

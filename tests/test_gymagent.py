@@ -281,7 +281,7 @@ params = {
         "a2c_coef": 0.1,
         "architecture": {"hidden_size": [25, 25]},
     },
-    "gym_env": {"classname": "__main__.make_gym_env", "env_name": "Pendulum-v1", "max_episode_steps": 200},
+    "gym_env": {"classname": "__main__.make_gym_env", "env_name": "CartPole-v1", "max_episode_steps": 500},
     "optimizer": {"classname": "torch.optim.Adam", "lr": 0.01},
 }
 
