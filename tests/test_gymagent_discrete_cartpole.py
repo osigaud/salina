@@ -169,10 +169,10 @@ def setup_optimizers(cfg, action_agent, critic_agent):
     return optimizer
 
 
-def compute_critic_loss(cfg, reward, ignore, critic):
+def compute_critic_loss(cfg, reward, must_bootstrap, critic):
     # Compute temporal difference
     assert is_vec_of_ones(reward[:-1]), "A reward is not one"
-    target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (1 - ignore.float())
+    target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (must_bootstrap.float())
     td = target - critic[0]
 
     # Compute critic loss
@@ -224,9 +224,9 @@ def run_a2c(cfg, max_grad_norm=0.5):
 
         critic, done, reward, action, action_probs, truncated = transition_workspace["critic", "env/done", "env/reward", "action", "action_probs", "env/truncated"]
 
-        ignore = torch.logical_or(~done[1], truncated[1])
+        must_bootstrap = torch.logical_or(~done[1], truncated[1])
 
-        critic_loss, td = compute_critic_loss(cfg, reward, ignore, critic)
+        critic_loss, td = compute_critic_loss(cfg, reward, must_bootstrap, critic)
 
         action_logp = action_probs[0].gather(1, action[0].view(-1, 1)).squeeze().log()
         a2c_loss = action_logp * td.detach()
@@ -272,7 +272,7 @@ params = {
         "seed": 4,
         "n_envs": 1,
         "n_steps": 20,
-        "eval_interval": 2000,
+        "eval_interval": 200,
         "nb_evals": 1,
         "max_epochs": 40000,
         "discount_factor": 0.95,
@@ -281,7 +281,7 @@ params = {
         "a2c_coef": 0.1,
         "architecture": {"hidden_size": [25, 25]},
     },
-    "gym_env": {"classname": "__main__.make_gym_env", "env_name": "CartPole-v1", "max_episode_steps": 100},
+    "gym_env": {"classname": "__main__.make_gym_env", "env_name": "CartPole-v1", "max_episode_steps": 500},
     "optimizer": {"classname": "torch.optim.Adam", "lr": 0.01},
 }
 

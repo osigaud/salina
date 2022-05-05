@@ -183,9 +183,9 @@ def setup_optimizers(cfg, action_agent, critic_agent):
     return optimizer
 
 
-def compute_critic_loss(cfg, reward, ignored, critic):
+def compute_critic_loss(cfg, reward, must_bootstrap, critic):
     # Compute temporal difference
-    target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (1 - ignored.float())
+    target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (must_bootstrap.float())
     td = target - critic[:-1]
 
     # Compute critic loss
@@ -244,9 +244,9 @@ def run_a2c(cfg, max_grad_norm=0.5):
         critic, done, reward, action, action_logp, truncated = transition_workspace[
                 "critic", "env/done", "env/reward", "action", "action_logprobs", "env/truncated"]
 
-        ignore = torch.logical_or(~done[1], truncated[1])
+        must_bootstrap = torch.logical_or(~done[1], truncated[1])
 
-        critic_loss, td = compute_critic_loss(cfg, reward, ignore, critic)
+        critic_loss, td = compute_critic_loss(cfg, reward, must_bootstrap, critic)
 
         a2c_loss = action_logp[:-1] * td.detach()
         a2c_loss = a2c_loss.mean()
@@ -281,13 +281,10 @@ def run_a2c(cfg, max_grad_norm=0.5):
 
             if cfg.save_best and mean > best_reward:
                 best_reward = mean
-                if not os.path.exists("./tmp/data/policies"):
-                    os.mkdir("./tmp/data")
-                    os.mkdir("./tmp/data/policies")
-                filename = "./tmp/data/policies/a2c" + str(mean.item()) + ".agt"
+                filename = "./tmp/a2c" + str(mean.item()) + ".agt"
                 eval_agent.save_model(filename)
                 policy = eval_agent.agent.agents[1]
-                plot_policy(policy, eval_env_agent, "CartPoleContinuous-v0", "./tmp/data/policies", best_reward, stochastic=False)
+                plot_policy(policy, eval_env_agent, "CartPoleContinuous-v0", "./tmp/", best_reward, stochastic=False)
 
 
 params = {
@@ -319,6 +316,7 @@ params = {
 if __name__ == "__main__":
     # with autograd.detect_anomaly():
     sys.path.append(os.getcwd())
+    print(os.getcwd())
     config = OmegaConf.create(params)
     torch.manual_seed(config.algorithm.seed)
     run_a2c(config)

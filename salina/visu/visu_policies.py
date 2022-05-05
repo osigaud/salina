@@ -61,7 +61,6 @@ def plot_pendulum_policy(
         aspect="auto",
     )
 
-    directory += "/pendulum_policies/"
     title = "Pendulum Actor"
     plt.colorbar(label="action")
 
@@ -120,7 +119,6 @@ def plot_cartpole_policy(
         aspect="auto",
     )
 
-    directory += "/cartpole_policies/"
     title = "Cartpole Actor"
     plt.colorbar(label="action")
 

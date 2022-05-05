@@ -19,7 +19,6 @@ def final_show(save_figure, plot, figure_name, x_label, y_label, title, director
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.title(title)
-    print(directory)
 
     if save_figure:
         if not os.path.exists(directory):

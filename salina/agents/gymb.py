@@ -173,8 +173,6 @@ class GymAgent(TAgent):
 
         # truncated = ('truncated' in info.keys())
         truncated = (self.timestep[k] == self.max_episode_steps)
-        if truncated:
-            print("truncated:", self.timestep[k])
         self.cumulated_reward[k] += reward
         observation = _format_frame(obs)
         if isinstance(observation, torch.Tensor):
