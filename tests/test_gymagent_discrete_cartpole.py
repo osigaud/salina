@@ -33,20 +33,17 @@ def get_transitions(workspace):
     done = workspace["env/done"][:-1]
     for key in workspace.keys():
         array = workspace[key]
-        # removes transitions (s_terminal -> s_initial)
 
-        if key == "env/env_obs":
-            x = array[:-1][~done]
-            x_next = array[1:][~done]
-            transition = torch.stack([x, x_next])
-            transitions["transitions"] = transition
-        else:
-            x = array[:-1][~done]
-            transitions[key] = x
+        # remove transitions (s_terminal -> s_initial)
+        x = array[:-1][~done]
+        x_next = array[1:][~done]
+        transitions[key] = torch.stack([x, x_next])
+
     workspace = Workspace()
     for k, v in transitions.items():
         workspace.set_full(k, v)
     return workspace
+
 
 def build_backbone(sizes, activation):
     layers = []
@@ -61,18 +58,6 @@ def build_mlp(sizes, activation, output_activation=nn.Identity()):
         act = activation if j < len(sizes) - 2 else output_activation
         layers += [nn.Linear(sizes[j], sizes[j + 1]), act]
     return nn.Sequential(*layers)
-
-
-def _index(tensor_3d, tensor_2d):
-    """
-    This function is used to index a 3d tensors using a 2d tensor
-    """
-    x, y, z = tensor_3d.size()
-    t = tensor_3d.reshape(x * y, z)
-    tt = tensor_2d.reshape(x * y)
-    v = t[torch.arange(x * y), tt]
-    v = v.reshape(x, y)
-    return v
 
 
 class ProbAgent(Agent):
@@ -186,19 +171,13 @@ def setup_optimizers(cfg, action_agent, critic_agent):
 
 def compute_critic_loss(cfg, reward, ignore, critic):
     # Compute temporal difference
-    target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (1 - ignore[1:].float())
+    target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (1 - ignore.float())
     td = target - critic[:-1]
 
     # Compute critic loss
     td_error = td ** 2
     critic_loss = td_error.mean()
     return critic_loss, td
-
-
-def compute_actor_loss_discrete(action_probs, action, td):
-    action_logp = _index(action_probs, action).log()
-    a2c_loss = action_logp[:-1] * td.detach()
-    return a2c_loss.mean()
 
 
 def run_a2c(cfg, max_grad_norm=0.5):
@@ -240,22 +219,16 @@ def run_a2c(cfg, max_grad_norm=0.5):
         tcritic_agent(train_workspace, n_steps=cfg.algorithm.n_steps)
         nb_steps += cfg.algorithm.n_steps * cfg.algorithm.n_envs
 
-        # obs = train_workspace["env/env_obs"]
-        # print(f"obs: {obs[0:].shape}")
+        transition_workspace = get_transitions(train_workspace)
 
-        train_workspace = get_transitions(train_workspace)
+        critic, done, reward, action, action_probs, truncated = transition_workspace["critic", "env/done", "env/reward", "action", "action_probs", "env/truncated"]
 
-        critic, done, reward, action, action_probs = train_workspace["critic", "env/done", "env/reward", "action", "action_probs"]
-
-        truncated = (
-                train_workspace["env/timestep"] == cfg.gym_env.max_episode_steps
-        )
-        ignore = torch.logical_or(~done, truncated)
+        ignore = torch.logical_or(~done[1], truncated[1])
 
         critic_loss, td = compute_critic_loss(cfg, reward, ignore, critic)
 
-        action_logp = action_probs.gather(1, action.view(-1, 1)).squeeze().log()
-        a2c_loss = action_logp[:-1] * td.detach()
+        action_logp = action_probs[0].gather(1, action[0].view(-1, 1)).squeeze().log()
+        a2c_loss = action_logp * td.detach()
         a2c_loss = a2c_loss.mean()
 
         # Compute entropy loss
@@ -307,7 +280,7 @@ params = {
         "a2c_coef": 0.1,
         "architecture": {"hidden_size": [25, 25]},
     },
-    "gym_env": {"classname": "__main__.make_gym_env", "env_name": "CartPole-v1", "max_episode_steps": 500},
+    "gym_env": {"classname": "__main__.make_gym_env", "env_name": "CartPole-v1", "max_episode_steps": 100},
     "optimizer": {"classname": "torch.optim.Adam", "lr": 0.01},
 }
 
