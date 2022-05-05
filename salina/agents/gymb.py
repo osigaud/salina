@@ -80,7 +80,7 @@ class GymAgent(TAgent):
     """ Create an Agent from a gym environment
     """
 
-    def __init__(self, make_env_fn=None, make_env_args={}, n_envs=None, action_string="action", output="env/", use_seed=True):
+    def __init__(self, max_episode_steps, make_env_fn=None, make_env_args={}, n_envs=None, action_string="action", output="env/", use_seed=True):
         """ Create an agent from a Gym environment
 
         Args:
@@ -94,6 +94,7 @@ class GymAgent(TAgent):
         """
         super().__init__()
         self.use_seed = use_seed
+        self.max_episode_steps = max_episode_steps
         assert n_envs > 0
         self.envs = None
         self.env_args = make_env_args
@@ -170,9 +171,10 @@ class GymAgent(TAgent):
 
         obs, reward, done, info = env.step(action)
 
-        truncated = ('truncated' in info.keys())
+        # truncated = ('truncated' in info.keys())
+        truncated = (self.timestep[k] == self.max_episode_steps)
         if truncated:
-            print("info", info)
+            print("truncated:", self.timestep[k])
         self.cumulated_reward[k] += reward
         observation = _format_frame(obs)
         if isinstance(observation, torch.Tensor):
@@ -295,7 +297,7 @@ class GymAgent(TAgent):
 class AutoResetGymAgent(GymAgent):
     """The same as GymAgent, but with an automatic reset when done is True"""
 
-    def __init__(self, make_env_fn=None, make_env_args={}, n_envs=None, action_string="action", output="env/", use_seed=True):
+    def __init__(self, max_episode_steps, make_env_fn=None, make_env_args={}, n_envs=None, action_string="action", output="env/", use_seed=True):
         """ Create an agent from a Gym environment  with Autoreset
 
         Args:
@@ -307,7 +309,7 @@ class AutoResetGymAgent(GymAgent):
             use_seed (bool, optional): [If True, then the seed is chained to the environments,
             and each environment will have its own seed]. Defaults to True.
         """
-        super().__init__(
+        super().__init__(max_episode_steps,
             make_env_fn=make_env_fn,
             make_env_args=make_env_args,
             n_envs=n_envs,
@@ -375,8 +377,8 @@ class NoAutoResetGymAgent(GymAgent):
     """ The same as GymAgent, named to make sure it is not AutoReset
     """
 
-    def __init__(self, make_env_fn=None, make_env_args={}, n_envs=None, action_string="action", output="env/", use_seed=True):
-        super().__init__(
+    def __init__(self, max_episode_steps, make_env_fn=None, make_env_args={}, n_envs=None, action_string="action", output="env/", use_seed=True):
+        super().__init__(max_episode_steps,
             make_env_fn=make_env_fn,
             make_env_args=make_env_args,
             n_envs=n_envs,

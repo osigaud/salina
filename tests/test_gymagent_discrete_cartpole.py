@@ -15,7 +15,7 @@ import torch.nn as nn
 
 from salina.agent import Agent
 from salina.agents.gymb import AutoResetGymAgent, NoAutoResetGymAgent
-
+from salina.utils.utils import is_vec_of_ones
 
 def get_transitions(workspace):
     """
@@ -117,8 +117,8 @@ class Logger:
 class AutoResetEnvAgent(AutoResetGymAgent):
     # Create the environment agent
     # This agent implements N gym environments with auto-reset
-    def __init__(self, cfg, n_envs):
-        super().__init__(get_class(cfg.gym_env), get_arguments(cfg.gym_env), n_envs)
+    def __init__(self, cfg, max_episode_steps, n_envs):
+        super().__init__(max_episode_steps, get_class(cfg.gym_env), get_arguments(cfg.gym_env), n_envs)
         env = instantiate_class(cfg.gym_env)
         env.seed(cfg.algorithm.seed)
         self.observation_space = env.observation_space
@@ -129,8 +129,8 @@ class AutoResetEnvAgent(AutoResetGymAgent):
 class NoAutoResetEnvAgent(NoAutoResetGymAgent):
     # Create the environment agent
     # This agent implements N gym environments without auto-reset
-    def __init__(self, cfg, n_envs):
-        super().__init__(get_class(cfg.gym_env), get_arguments(cfg.gym_env), n_envs)
+    def __init__(self, cfg, max_episode_steps, n_envs):
+        super().__init__(max_episode_steps, get_class(cfg.gym_env), get_arguments(cfg.gym_env), n_envs)
         env = instantiate_class(cfg.gym_env)
         env.seed(cfg.algorithm.seed)
         self.observation_space = env.observation_space
@@ -171,8 +171,9 @@ def setup_optimizers(cfg, action_agent, critic_agent):
 
 def compute_critic_loss(cfg, reward, ignore, critic):
     # Compute temporal difference
+    assert is_vec_of_ones(reward[:-1]), "A reward is not one"
     target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (1 - ignore.float())
-    td = target - critic[:-1]
+    td = target - critic[0]
 
     # Compute critic loss
     td_error = td ** 2
@@ -185,8 +186,8 @@ def run_a2c(cfg, max_grad_norm=0.5):
     logger = Logger(cfg)
 
     # 2) Create the environment agent
-    train_env_agent = AutoResetEnvAgent(cfg, n_envs=cfg.algorithm.n_envs)
-    eval_env_agent = NoAutoResetEnvAgent(cfg, n_envs=cfg.algorithm.nb_evals)
+    train_env_agent = AutoResetEnvAgent(cfg, max_episode_steps=cfg.gym_env.max_episode_steps, n_envs=cfg.algorithm.n_envs)
+    eval_env_agent = NoAutoResetEnvAgent(cfg, max_episode_steps=cfg.gym_env.max_episode_steps, n_envs=cfg.algorithm.nb_evals)
 
     # 3) Create the A2C Agent
     a2c_agent, eval_agent, param_agent, critic_agent = create_a2c_agent(cfg, train_env_agent, eval_env_agent)
@@ -269,7 +270,7 @@ params = {
     },
     "algorithm": {
         "seed": 4,
-        "n_envs": 8,
+        "n_envs": 1,
         "n_steps": 20,
         "eval_interval": 2000,
         "nb_evals": 1,
