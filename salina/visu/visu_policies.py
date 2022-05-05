@@ -48,7 +48,6 @@ def plot_pendulum_policy(
         ):
             obs = np.array([[np.cos(t), np.sin(t), td]])
             obs = th.from_numpy(obs.astype(np.float32))
-
             action = agent.predict_action(obs,  stochastic)
 
             portrait[definition - (1 + index_td), index_t] = action.item()
@@ -57,7 +56,7 @@ def plot_pendulum_policy(
     plt.imshow(
         portrait,
         cmap="inferno",
-        extent=[-180, 180, state_min[2], state_max[2]],
+        extent=[-np.pi, np.pi, state_min[2], state_max[2]],
         aspect="auto",
     )
 

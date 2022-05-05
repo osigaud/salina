@@ -19,6 +19,7 @@ from salina.agent import Agent
 from salina.agents.gymb import AutoResetGymAgent, NoAutoResetGymAgent
 
 from salina.visu.visu_policies import plot_policy
+from salina.visu.visu_critics import plot_critic
 
 
 def get_transitions(workspace):
@@ -62,6 +63,39 @@ def build_mlp(sizes, activation, output_activation=nn.Identity()):
         act = activation if j < len(sizes) - 2 else output_activation
         layers += [nn.Linear(sizes[j], sizes[j + 1]), act]
     return nn.Sequential(*layers)
+
+
+class ContinuousActionTunableVarianceAgent(Agent):
+    def __init__(self, state_dim, hidden_layers, action_dim, **kwargs):
+        super().__init__()
+        layers = [state_dim] + list(hidden_layers) + [action_dim]
+        self.model = build_mlp(layers, activation=nn.ReLU())
+        init_variance = torch.randn(action_dim, 1)
+        # print("init_variance:", init_variance)
+        self.std_param = nn.parameter.Parameter(init_variance)
+        self.soft_plus = torch.nn.Softplus()
+
+    def forward(self, t, stochastic, **kwargs):
+        obs = self.get(("env/env_obs", t))
+        mean = self.model(obs)
+        dist = Normal(mean, self.soft_plus(self.std_param))  # std must be positive
+        self.set(("entropy", t), dist.entropy())
+        if stochastic:
+            action = torch.tanh(dist.sample())  # valid actions are supposed to be in [-1,1] range
+        else:
+            action = torch.tanh(mean)  # valid actions are supposed to be in [-1,1] range
+        logp_pi = dist.log_prob(action).sum(axis=-1)
+        self.set(("action", t), action)
+        self.set(("action_logprobs", t), logp_pi)
+
+    def predict_action(self, obs, stochastic):
+        mean = self.model(obs)
+        dist = Normal(mean, self.soft_plus(self.std_param))
+        if stochastic:
+            action = torch.tanh(dist.sample())  # valid actions are supposed to be in [-1,1] range
+        else:
+            action = torch.tanh(mean)  # valid actions are supposed to be in [-1,1] range
+        return action
 
 
 class ContinuousActionStateDependentVarianceAgent(Agent):
@@ -156,7 +190,7 @@ class NoAutoResetEnvAgent(NoAutoResetGymAgent):
 # Create the A2C Agent
 def create_a2c_agent(cfg, train_env_agent, eval_env_agent):
     observation_size, n_actions = train_env_agent.get_obs_and_actions_sizes()
-    action_agent = ContinuousActionStateDependentVarianceAgent(observation_size, cfg.algorithm.architecture.hidden_size, n_actions)
+    action_agent = ContinuousActionTunableVarianceAgent(observation_size, cfg.algorithm.architecture.hidden_size, n_actions)
     tr_agent = Agents(train_env_agent, action_agent)
     ev_agent = Agents(eval_env_agent, action_agent)
 
@@ -283,8 +317,9 @@ def run_a2c(cfg, max_grad_norm=0.5):
                 filename = "./tmp/a2c" + str(mean.item()) + ".agt"
                 eval_agent.save_model(filename)
                 policy = eval_agent.agent.agents[1]
+                critic = critic_agent
                 plot_policy(policy, eval_env_agent, "Pendulum-v1", "./tmp/", best_reward, stochastic=False)
-
+                plot_critic(critic, eval_env_agent, "Pendulum-v1", "./tmp/", best_reward)
 
 params = {
     "save_best": True,
@@ -296,11 +331,11 @@ params = {
     "algorithm": {
         "seed": 5,
         "n_envs": 1,
-        "n_steps": 5,
+        "n_steps": 8,
         "eval_interval": 100,
         "nb_evals": 10,
         "gae": 0.8,
-        "max_epochs": 10000,
+        "max_epochs": 50000,
         "discount_factor": 0.95,
         "entropy_coef": 2.55e-7,
         "critic_coef": 0.4,

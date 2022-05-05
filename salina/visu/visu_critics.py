@@ -5,9 +5,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch as th
 
-from my_salina_examples.visu.common import final_show
+from salina.visu.common import final_show
 
-def plot_critic(agent, env, env_name, directory, plot=False):
+
+def plot_critic(agent, env, env_name, directory, best_reward, plot=False):
     if "cartpole" in env_name.lower():
         plot_env = plot_cartpole_critic
     elif "pendulum" in env_name.lower():
@@ -16,7 +17,7 @@ def plot_critic(agent, env, env_name, directory, plot=False):
         print("Environment not supported for plot. Please use CartPole or Pendulum")
         return
 
-    figname = f"critic_{env_name}.png"
+    figname = f"critic_{env_name}_{best_reward}.png"
     plot_env(agent, env, figname, directory, plot)
 
 
