@@ -1,13 +1,13 @@
-import os
 import random
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch as th
 
-from my_salina_examples.visu.common import final_show
+from salina.visu.common import final_show
 
-def plot_policy(agent, env, env_name, directory, best_reward, plot=False):
+
+def plot_policy(agent, env, env_name, directory, best_reward, plot=False, stochastic=False):
     if "cartpole" in env_name.lower():
         plot_env = plot_cartpole_policy
     elif "pendulum" in env_name.lower():
@@ -15,9 +15,9 @@ def plot_policy(agent, env, env_name, directory, best_reward, plot=False):
     else:
         print("Environment not supported for plot. Please use CartPole or Pendulum")
         return
-
+    save_figure = True
     figname = f"policy_{env_name}_{best_reward}.png"
-    plot_env(agent, env, figname, directory, plot)
+    plot_env(agent, env, figname, directory, plot, save_figure, stochastic)
 
 
 def plot_pendulum_policy(
@@ -27,9 +27,11 @@ def plot_pendulum_policy(
     Plot an agent for the Pendulum environment
     :param agent: the policy specifying the action to be plotted
     :param env: the evaluation environment
-    :param plot: whether the plot should be interactive
     :param figname: the name of the file to save the figure
+    :param directory: the path to the file to save the figure
+    :param plot: whether the plot should be interactive
     :param save_figure: whether the figure should be saved
+    :param stochastic: whether one wants to plot a deterministic or stochastic policy
     :return: nothing
     """
     if env.observation_space.shape[0] <= 2:
@@ -47,7 +49,7 @@ def plot_pendulum_policy(
             obs = np.array([[np.cos(t), np.sin(t), td]])
             obs = th.from_numpy(obs.astype(np.float32))
 
-            action = agent.model(obs)
+            action = agent.predict_action(obs,  stochastic)
 
             portrait[definition - (1 + index_td), index_t] = action.item()
 
@@ -75,14 +77,14 @@ def plot_cartpole_policy(
     """
     Visualization of a policy in a N-dimensional state space
     The N-dimensional state space is projected into its first two dimensions.
-    A FeatureInverter wrapper should be used to select which features to put first so as
-    to plot them
+    A FeatureInverter wrapper should be used to select which features to put first to plot them
     :param agent: the policy agent to be plotted
     :param env: the environment
+    :param figname: the name of the file to save the figure
+    :param directory: the path to the file to save the figure
     :param plot: whether the plot should be interactive
-    :param figname: the name of the file where to plot the function
-    :param foldername: the name of the folder where to put the file
-    :param save_figure: whether the plot should be saved into a file
+    :param save_figure: whether the figure should be saved
+    :param stochastic: whether one wants to plot a deterministic or stochastic policy
     :return: nothing
     """
     if env.observation_space.shape[0] <= 2:
@@ -106,7 +108,7 @@ def plot_cartpole_policy(
             obs = np.append(obs, y)
             obs = np.append(obs, z2)
             obs = th.from_numpy(obs.astype(np.float32))
-            action = agent.model(obs)
+            action = agent.predict_action(obs,  stochastic)
 
             portrait[definition - (1 + index_y), index_x] = action.item()
 

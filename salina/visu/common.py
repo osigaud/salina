@@ -1,7 +1,7 @@
 import os
 
 import matplotlib.pyplot as plt
-from pathlib import Path
+
 
 def final_show(save_figure, plot, figure_name, x_label, y_label, title, directory):
     """
@@ -13,16 +13,18 @@ def final_show(save_figure, plot, figure_name, x_label, y_label, title, director
     :param x_label: label on the x axis
     :param y_label: label on the y axis
     :param title: title of the figure
+    :param directory: the path where to save the picture
     :return: nothing
     """
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.title(title)
+    print(directory)
 
     if save_figure:
         if not os.path.exists(directory):
             os.makedirs(directory)
-        filename = Path(directory + figure_name)
+        filename = directory + figure_name
         plt.savefig(filename)
 
     if plot:

@@ -10,3 +10,4 @@ pandas
 opencv-python
 xformers>=0.0.3
 omegaconf
+matplotlib

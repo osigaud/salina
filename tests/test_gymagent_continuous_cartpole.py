@@ -18,6 +18,36 @@ from torch.distributions.normal import Normal
 from salina.agent import Agent
 from salina.agents.gymb import AutoResetGymAgent, NoAutoResetGymAgent
 
+from salina.visu.visu_policies import plot_policy
+
+
+def get_transitions(workspace):
+    """
+    Takes in a workspace from salina:
+    [(step1),(step2),(step3), ... ]
+    return a workspace of transitions :
+    [
+        [step1,step2],
+        [step2,step3]
+        ...
+    ]
+    Filters every transitions [step_final,step_initial]
+    """
+    transitions = {}
+    done = workspace["env/done"][:-1]
+    for key in workspace.keys():
+        array = workspace[key]
+
+        # remove transitions (s_terminal -> s_initial)
+        x = array[:-1][~done]
+        x_next = array[1:][~done]
+        transitions[key] = torch.stack([x, x_next])
+
+    workspace = Workspace()
+    for k, v in transitions.items():
+        workspace.set_full(k, v)
+    return workspace
+
 
 def build_backbone(sizes, activation):
     layers = []
@@ -32,18 +62,6 @@ def build_mlp(sizes, activation, output_activation=nn.Identity()):
         act = activation if j < len(sizes) - 2 else output_activation
         layers += [nn.Linear(sizes[j], sizes[j + 1]), act]
     return nn.Sequential(*layers)
-
-
-def _index(tensor_3d, tensor_2d):
-    """
-    This function is used to index a 3d tensors using a 2d tensor
-    """
-    x, y, z = tensor_3d.size()
-    t = tensor_3d.reshape(x * y, z)
-    tt = tensor_2d.reshape(x * y)
-    v = t[torch.arange(x * y), tt]
-    v = v.reshape(x, y)
-    return v
 
 
 class ContinuousActionStateDependentVarianceAgent(Agent):
@@ -62,6 +80,7 @@ class ContinuousActionStateDependentVarianceAgent(Agent):
         backbone_output = self.backbone(obs)
         last = self.last_layer(backbone_output)
         mean = self.mean_layer(last)
+        assert not torch.any(torch.isnan(mean)), "Nan Here"
         dist = Normal(mean, self.std_layer(last))
         self.set(("entropy", t), dist.entropy())
         if stochastic:
@@ -72,6 +91,17 @@ class ContinuousActionStateDependentVarianceAgent(Agent):
         # print(f"action: {action}")
         self.set(("action", t), action)
         self.set(("action_logprobs", t), logp_pi)
+
+    def predict_action(self, obs, stochastic):
+        backbone_output = self.backbone(obs)
+        last = self.last_layer(backbone_output)
+        mean = self.mean_layer(last)
+        dist = Normal(mean, self.std_layer(last))
+        if stochastic:
+            action = torch.tanh(dist.sample())  # valid actions are supposed to be in [-1,1] range
+        else:
+            action = torch.tanh(mean)  # valid actions are supposed to be in [-1,1] range
+        return action
 
 
 class VAgent(Agent):
@@ -102,8 +132,8 @@ class Logger:
 class AutoResetEnvAgent(AutoResetGymAgent):
     # Create the environment agent
     # This agent implements N gym environments with auto-reset
-    def __init__(self, cfg, n_envs):
-        super().__init__(get_class(cfg.gym_env), get_arguments(cfg.gym_env), n_envs)
+    def __init__(self, cfg, max_episode_steps, n_envs):
+        super().__init__(max_episode_steps, get_class(cfg.gym_env), get_arguments(cfg.gym_env), n_envs)
         env = instantiate_class(cfg.gym_env)
         env.seed(cfg.algorithm.seed)
         self.observation_space = env.observation_space
@@ -114,8 +144,8 @@ class AutoResetEnvAgent(AutoResetGymAgent):
 class NoAutoResetEnvAgent(NoAutoResetGymAgent):
     # Create the environment agent
     # This agent implements N gym environments without auto-reset
-    def __init__(self, cfg, n_envs):
-        super().__init__(get_class(cfg.gym_env), get_arguments(cfg.gym_env), n_envs)
+    def __init__(self, cfg, max_episode_steps, n_envs):
+        super().__init__(max_episode_steps, get_class(cfg.gym_env), get_arguments(cfg.gym_env), n_envs)
         env = instantiate_class(cfg.gym_env)
         env.seed(cfg.algorithm.seed)
         self.observation_space = env.observation_space
@@ -153,13 +183,9 @@ def setup_optimizers(cfg, action_agent, critic_agent):
     return optimizer
 
 
-def compute_critic_loss(cfg, reward, done, critic):
+def compute_critic_loss(cfg, reward, ignored, critic):
     # Compute temporal difference
-    # print(reward[0:])
-    # print(f"reward: {reward[:-1].shape}")
-    # print(f"done: {done[1:].shape}")
-    # print(f"critic: {critic[1:].shape}")
-    target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (1 - done[1:].float())
+    target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (1 - ignored.float())
     td = target - critic[:-1]
 
     # Compute critic loss
@@ -173,19 +199,14 @@ def compute_actor_loss_continuous(action_logp, td):
     return a2c_loss.mean()
 
 
-def compute_actor_loss_discrete(action_probs, action, td):
-    action_logp = _index(action_probs, action).log()
-    a2c_loss = action_logp[:-1] * td.detach()
-    return a2c_loss.mean()
-
-
 def run_a2c(cfg, max_grad_norm=0.5):
     # 1)  Build the  logger
     logger = Logger(cfg)
+    best_reward = -10e9
 
     # 2) Create the environment agent
-    train_env_agent = AutoResetEnvAgent(cfg, n_envs=cfg.algorithm.n_envs)
-    eval_env_agent = NoAutoResetEnvAgent(cfg, n_envs=cfg.algorithm.nb_evals)
+    train_env_agent = AutoResetEnvAgent(cfg, max_episode_steps=cfg.gym_env.max_episode_steps, n_envs=cfg.algorithm.n_envs)
+    eval_env_agent = NoAutoResetEnvAgent(cfg, max_episode_steps=cfg.gym_env.max_episode_steps, n_envs=cfg.algorithm.nb_evals)
 
     # 3) Create the A2C Agent
     a2c_agent, eval_agent, critic_agent = create_a2c_agent(cfg, train_env_agent, eval_env_agent)
@@ -218,20 +239,17 @@ def run_a2c(cfg, max_grad_norm=0.5):
         tcritic_agent(train_workspace, n_steps=cfg.algorithm.n_steps)
         nb_steps += cfg.algorithm.n_steps * cfg.algorithm.n_envs
 
-        obs = train_workspace["env/env_obs"]
-        # print(f"obs: {obs[0:].shape}")
+        transition_workspace = get_transitions(train_workspace)
 
-        critic, done, reward, action = train_workspace["critic", "env/done", "env/reward", "action"]
-        if train_env_agent.is_continuous_action():
-            # Get relevant tensors (size are timestep x n_envs x ....)
-            action_logp = train_workspace["action_logprobs"]
-            # Compute critic loss
-            critic_loss, td = compute_critic_loss(cfg, reward, done, critic)
-            a2c_loss = compute_actor_loss_continuous(action_logp, td)
-        else:
-            action_probs = train_workspace["action_probs"]
-            critic_loss, td = compute_critic_loss(cfg, reward, done, critic)
-            a2c_loss = compute_actor_loss_discrete(action_probs, action, td)
+        critic, done, reward, action, action_logp, truncated = transition_workspace[
+                "critic", "env/done", "env/reward", "action", "action_logprobs", "env/truncated"]
+
+        ignore = torch.logical_or(~done[1], truncated[1])
+
+        critic_loss, td = compute_critic_loss(cfg, reward, ignore, critic)
+
+        a2c_loss = action_logp[:-1] * td.detach()
+        a2c_loss = a2c_loss.mean()
 
         # Compute entropy loss
         # entropy_loss = torch.distributions.Categorical(action_probs).entropy().mean()
@@ -261,8 +279,19 @@ def run_a2c(cfg, max_grad_norm=0.5):
             logger.add_log("reward", mean, nb_steps)
             print(f"epoch: {epoch}, reward: {mean }")
 
+            if cfg.save_best and mean > best_reward:
+                best_reward = mean
+                if not os.path.exists("./tmp/data/policies"):
+                    os.mkdir("./tmp/data")
+                    os.mkdir("./tmp/data/policies")
+                filename = "./tmp/data/policies/a2c" + str(mean.item()) + ".agt"
+                eval_agent.save_model(filename)
+                policy = eval_agent.agent.agents[1]
+                plot_policy(policy, eval_env_agent, "CartPoleContinuous-v0", "./tmp/data/policies", best_reward, stochastic=False)
+
 
 params = {
+    "save_best": True,
     "logger": {
         "classname": "salina.logger.TFLogger",
         "log_dir": "./tmp/" + str(time.time()),
@@ -274,7 +303,7 @@ params = {
         "seed": 4,
         "n_envs": 1,
         "n_steps": 8,
-        "eval_interval": 2000,
+        "eval_interval": 200,
         "nb_evals": 1,
         "max_epochs": 40000,
         "discount_factor": 0.95,
