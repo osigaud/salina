@@ -118,8 +118,8 @@ def create_a2c_agent(cfg, train_env_agent, eval_env_agent):
     observation_size, n_actions = train_env_agent.get_obs_and_actions_sizes()
     action_agent = ContinuousActionStateDependentVarianceAgent(observation_size, cfg.algorithm.architecture.hidden_size, n_actions)
     # print_agent = PrintAgent(*{"critic", "env/reward", "env/done", "action", "env/env_obs"})
-    # print_agent = PrintAgent(*{"env/done", "action", "env/env_obs"})
-    tr_agent = Agents(train_env_agent, action_agent)
+    print_agent = PrintAgent()
+    tr_agent = Agents(train_env_agent, action_agent, print_agent)
     ev_agent = Agents(eval_env_agent, action_agent)
 
     critic_agent = VAgent(observation_size, cfg.algorithm.architecture.hidden_size)

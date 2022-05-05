@@ -140,6 +140,8 @@ class CopyTAgent(Agent):
 
 class PrintAgent(Agent):
     """An agent to generate print in the console (mainly for debugging)
+    It can be passed a list of strings corresponding to the variables to print
+    or if nothing is passed, it prints all the existing variables in the workspace
     """
 
     def __init__(self, *names, name=None):
@@ -151,6 +153,8 @@ class PrintAgent(Agent):
         self.names = names
 
     def forward(self, t, **kwargs):
+        if self.names == ():
+            self.names = self.workspace.keys()
         for n in self.names:
             print(n, " = ", self.get((n, t)))
 
