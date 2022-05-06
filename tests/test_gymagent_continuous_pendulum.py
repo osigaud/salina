@@ -40,7 +40,7 @@ def build_mlp(sizes, activation, output_activation=nn.Identity()):
 
 
 class ContinuousActionTunableVarianceAgent(Agent):
-    def __init__(self, state_dim, hidden_layers, action_dim, **kwargs):
+    def __init__(self, state_dim, hidden_layers, action_dim):
         super().__init__()
         layers = [state_dim] + list(hidden_layers) + [action_dim]
         self.model = build_mlp(layers, activation=nn.ReLU())
@@ -73,7 +73,7 @@ class ContinuousActionTunableVarianceAgent(Agent):
 
 
 class ContinuousActionStateDependentVarianceAgent(Agent):
-    def __init__(self, state_dim, hidden_layers, action_dim, **kwargs):
+    def __init__(self, state_dim, hidden_layers, action_dim):
         super().__init__()
         backbone_dim = [state_dim] + list(hidden_layers)
         self.layers = build_backbone(backbone_dim, activation=nn.ReLU())
@@ -112,6 +112,7 @@ class ContinuousActionStateDependentVarianceAgent(Agent):
             action = mean  # valid actions are supposed to be in [-1,1] range
         return action
 
+
 class VAgent(Agent):
     def __init__(self, state_dim, hidden_layers):
         super().__init__()
@@ -140,8 +141,8 @@ class Logger:
 class AutoResetEnvAgent(AutoResetGymAgent):
     # Create the environment agent
     # This agent implements N gym environments with auto-reset
-    def __init__(self, cfg, max_episode_steps, n_envs):
-        super().__init__(max_episode_steps, get_class(cfg.gym_env), get_arguments(cfg.gym_env), n_envs)
+    def __init__(self, cfg, n_envs):
+        super().__init__(get_class(cfg.gym_env), get_arguments(cfg.gym_env), n_envs)
         env = instantiate_class(cfg.gym_env)
         env.seed(cfg.algorithm.seed)
         self.observation_space = env.observation_space
@@ -152,8 +153,8 @@ class AutoResetEnvAgent(AutoResetGymAgent):
 class NoAutoResetEnvAgent(NoAutoResetGymAgent):
     # Create the environment agent
     # This agent implements N gym environments without auto-reset
-    def __init__(self, cfg, max_episode_steps, n_envs):
-        super().__init__(max_episode_steps, get_class(cfg.gym_env), get_arguments(cfg.gym_env), n_envs)
+    def __init__(self, cfg, n_envs):
+        super().__init__(get_class(cfg.gym_env), get_arguments(cfg.gym_env), n_envs)
         env = instantiate_class(cfg.gym_env)
         env.seed(cfg.algorithm.seed)
         self.observation_space = env.observation_space
@@ -191,9 +192,9 @@ def setup_optimizers(cfg, action_agent, critic_agent):
 
 def compute_critic_loss(cfg, reward, must_bootstrap, critic):
     # Compute temporal difference
-    # target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (must_bootstrap.float())
-    # td = target - critic[:-1]
-    td = gae(critic, reward, must_bootstrap, cfg.algorithm.discount_factor, cfg.algorithm.gae)
+    target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (must_bootstrap.float())
+    td = target - critic[:-1]
+    # td = gae(critic, reward, must_bootstrap, cfg.algorithm.discount_factor, cfg.algorithm.gae)
 
     # Compute critic loss
     td_error = td ** 2
@@ -213,10 +214,8 @@ def run_a2c(cfg, max_grad_norm=0.5):
     best_reward = -10e9
 
     # 2) Create the environment agent
-    train_env_agent = AutoResetEnvAgent(cfg, max_episode_steps=cfg.gym_env.max_episode_steps,
-                                        n_envs=cfg.algorithm.n_envs)
-    eval_env_agent = NoAutoResetEnvAgent(cfg, max_episode_steps=cfg.gym_env.max_episode_steps,
-                                         n_envs=cfg.algorithm.nb_evals)
+    train_env_agent = AutoResetEnvAgent(cfg, n_envs=cfg.algorithm.n_envs)
+    eval_env_agent = NoAutoResetEnvAgent(cfg, n_envs=cfg.algorithm.nb_evals)
 
     # 3) Create the A2C Agent
     a2c_agent, eval_agent, critic_agent = create_a2c_agent(cfg, train_env_agent, eval_env_agent)
@@ -297,6 +296,7 @@ def run_a2c(cfg, max_grad_norm=0.5):
                 plot_policy(policy, eval_env_agent, "Pendulum-v1", "./tmp/", best_reward, stochastic=False)
                 plot_critic(critic, eval_env_agent, "Pendulum-v1", "./tmp/", best_reward)
     chrono.stop()
+
 
 params = {
     "save_best": True,
