@@ -92,9 +92,9 @@ class ContinuousActionStateDependentVarianceAgent(Agent):
         dist = Normal(mean, self.std_layer(last))
         self.set(("entropy", t), dist.entropy())
         if stochastic:
-            action = torch.tanh(dist.sample())  # valid actions are supposed to be in [-1,1] range
+            action = dist.sample()  # valid actions are supposed to be in [-1,1] range
         else:
-            action = torch.tanh(mean)  # valid actions are supposed to be in [-1,1] range
+            action = mean  # valid actions are supposed to be in [-1,1] range
         logp_pi = dist.log_prob(action).sum(axis=-1)
         # print(f"action: {action}")
         self.set(("action", t), action)
@@ -106,9 +106,9 @@ class ContinuousActionStateDependentVarianceAgent(Agent):
         mean = self.mean_layer(last)
         dist = Normal(mean, self.std_layer(last))
         if stochastic:
-            action = torch.tanh(dist.sample())  # valid actions are supposed to be in [-1,1] range
+            action = dist.sample()  # valid actions are supposed to be in [-1,1] range
         else:
-            action = torch.tanh(mean)  # valid actions are supposed to be in [-1,1] range
+            action = mean  # valid actions are supposed to be in [-1,1] range
         return action
 
 
@@ -166,7 +166,7 @@ def create_a2c_agent(cfg, train_env_agent, eval_env_agent):
     observation_size, n_actions = train_env_agent.get_obs_and_actions_sizes()
     action_agent = ContinuousActionStateDependentVarianceAgent(observation_size, cfg.algorithm.architecture.hidden_size, n_actions)
     tr_agent = Agents(train_env_agent, action_agent)
-    ev_agent = Agents(eval_env_agent, action_agent, PrintAgent())
+    ev_agent = Agents(eval_env_agent, action_agent)
 
     critic_agent = VAgent(observation_size, cfg.algorithm.architecture.hidden_size)
 
@@ -177,8 +177,8 @@ def create_a2c_agent(cfg, train_env_agent, eval_env_agent):
     return train_agent, eval_agent, critic_agent
 
 
-def make_gym_env(max_episode_steps, env_name):
-    return TimeLimit(gym.make(env_name), max_episode_steps=max_episode_steps)
+def make_gym_env(env_name):
+    return gym.make(env_name)
 
 
 # Configure the optimizer over the a2c agent
@@ -310,7 +310,7 @@ params = {
         "n_envs": 8,
         "n_steps": 100,
         "eval_interval": 500,
-        "nb_evals": 5,
+        "nb_evals": 10,
         "max_epochs": 40000,
         "discount_factor": 0.95,
         "entropy_coef": 0.001,
@@ -318,7 +318,7 @@ params = {
         "a2c_coef": 0.1,
         "architecture": {"hidden_size": [25, 25]},
     },
-    "gym_env": {"classname": "__main__.make_gym_env", "env_name": "CartPoleContinuous-v1", "max_episode_steps": 500},
+    "gym_env": {"classname": "__main__.make_gym_env", "env_name": "CartPoleContinuous-v1"},
     "optimizer": {"classname": "torch.optim.Adam", "lr": 0.01},
 }
 

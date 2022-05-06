@@ -171,8 +171,8 @@ class GymAgent(TAgent):
 
         obs, reward, done, info = env.step(action)
         if 'TimeLimit.truncated' in info.keys():
-            # truncated = info['TimeLimit.truncated']
-            truncated = True
+            truncated = info['TimeLimit.truncated']
+            # truncated = True
         else:
             truncated = False
         self.cumulated_reward[k] += reward
@@ -202,7 +202,6 @@ class GymAgent(TAgent):
                 {
                     **self.last_frame[k],
                     "done": torch.tensor([True]),
-                    "reward": torch.tensor([0.0]).float(),
                     "truncated": torch.tensor([self.truncated[k]]),
                     "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
                     "timestep": torch.tensor([self.timestep[k]]),
@@ -258,8 +257,9 @@ class GymAgent(TAgent):
                 observations.append(obs)
                 rewards.append(reward)
             self.set_reward(rewards, t - 1)
-            self.set_obs(observations, t)
             self.set_reward(rewards, t)
+            self.set_obs(observations, t)
+
 
     def is_continuous_action(self):
         return isinstance(self.action_space, gym.spaces.Box)
