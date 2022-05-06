@@ -10,6 +10,8 @@ from omegaconf import OmegaConf
 from salina import instantiate_class, get_arguments, get_class
 from salina.workspace import Workspace
 from salina.agents import Agents, TemporalAgent, PrintAgent
+from salina.chrono import Chrono
+from salina.rl.functional import gae
 
 import torch
 import torch.nn as nn
@@ -20,34 +22,6 @@ from salina.agents.gymb import AutoResetGymAgent, NoAutoResetGymAgent
 
 from salina.visu.visu_policies import plot_policy
 from salina.visu.visu_critics import plot_critic
-
-
-def get_transitions(workspace):
-    """
-    Takes in a workspace from salina:
-    [(step1),(step2),(step3), ... ]
-    return a workspace of transitions :
-    [
-        [step1,step2],
-        [step2,step3]
-        ...
-    ]
-    Filters every transitions [step_final,step_initial]
-    """
-    transitions = {}
-    done = workspace["env/done"][:-1]
-    for key in workspace.keys():
-        array = workspace[key]
-
-        # remove transitions (s_terminal -> s_initial)
-        x = array[:-1][~done]
-        x_next = array[1:][~done]
-        transitions[key] = torch.stack([x, x_next])
-
-    workspace = Workspace()
-    for k, v in transitions.items():
-        workspace.set_full(k, v)
-    return workspace
 
 
 def build_backbone(sizes, activation):
@@ -81,9 +55,9 @@ class ContinuousActionTunableVarianceAgent(Agent):
         dist = Normal(mean, self.soft_plus(self.std_param))  # std must be positive
         self.set(("entropy", t), dist.entropy())
         if stochastic:
-            action = torch.tanh(dist.sample())  # valid actions are supposed to be in [-1,1] range
+            action = dist.sample()  # valid actions are supposed to be in [-1,1] range
         else:
-            action = torch.tanh(mean)  # valid actions are supposed to be in [-1,1] range
+            action = mean  # valid actions are supposed to be in [-1,1] range
         logp_pi = dist.log_prob(action).sum(axis=-1)
         self.set(("action", t), action)
         self.set(("action_logprobs", t), logp_pi)
@@ -92,9 +66,9 @@ class ContinuousActionTunableVarianceAgent(Agent):
         mean = self.model(obs)
         dist = Normal(mean, self.soft_plus(self.std_param))
         if stochastic:
-            action = torch.tanh(dist.sample())  # valid actions are supposed to be in [-1,1] range
+            action = dist.sample()  # valid actions are supposed to be in [-1,1] range
         else:
-            action = torch.tanh(mean)  # valid actions are supposed to be in [-1,1] range
+            action = mean  # valid actions are supposed to be in [-1,1] range
         return action
 
 
@@ -119,9 +93,9 @@ class ContinuousActionStateDependentVarianceAgent(Agent):
         dist = Normal(mean, self.std_layer(last))
         self.set(("entropy", t), dist.entropy())
         if stochastic:
-            action = torch.tanh(dist.sample())  # valid actions are supposed to be in [-1,1] range
+            action = dist.sample()  # valid actions are supposed to be in [-1,1] range
         else:
-            action = torch.tanh(mean)  # valid actions are supposed to be in [-1,1] range
+            action = mean  # valid actions are supposed to be in [-1,1] range
         logp_pi = dist.log_prob(action).sum(axis=-1)
         # print(f"action: {action}")
         self.set(("action", t), action)
@@ -133,9 +107,9 @@ class ContinuousActionStateDependentVarianceAgent(Agent):
         mean = self.mean_layer(last)
         dist = Normal(mean, self.std_layer(last))
         if stochastic:
-            action = torch.tanh(dist.sample())  # valid actions are supposed to be in [-1,1] range
+            action = dist.sample()  # valid actions are supposed to be in [-1,1] range
         else:
-            action = torch.tanh(mean)  # valid actions are supposed to be in [-1,1] range
+            action = mean  # valid actions are supposed to be in [-1,1] range
         return action
 
 class VAgent(Agent):
@@ -217,8 +191,9 @@ def setup_optimizers(cfg, action_agent, critic_agent):
 
 def compute_critic_loss(cfg, reward, must_bootstrap, critic):
     # Compute temporal difference
-    target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (must_bootstrap.float())
-    td = target - critic[:-1]
+    # target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (must_bootstrap.float())
+    # td = target - critic[:-1]
+    td = gae(critic, reward, must_bootstrap, cfg.algorithm.discount_factor, cfg.algorithm.gae)
 
     # Compute critic loss
     td_error = td ** 2
@@ -233,6 +208,7 @@ def compute_actor_loss_continuous(action_logp, td):
 
 def run_a2c(cfg, max_grad_norm=0.5):
     # 1)  Build the  logger
+    chrono = Chrono()
     logger = Logger(cfg)
     best_reward = -10e9
 
@@ -273,7 +249,7 @@ def run_a2c(cfg, max_grad_norm=0.5):
         tcritic_agent(train_workspace, n_steps=cfg.algorithm.n_steps)
         nb_steps += cfg.algorithm.n_steps * cfg.algorithm.n_envs
 
-        transition_workspace = get_transitions(train_workspace)
+        transition_workspace = train_workspace.get_transitions()
 
         critic, done, reward, action, action_logp, truncated = transition_workspace[
                 "critic", "env/done", "env/reward", "action", "action_logprobs", "env/truncated"]
@@ -320,6 +296,7 @@ def run_a2c(cfg, max_grad_norm=0.5):
                 critic = critic_agent
                 plot_policy(policy, eval_env_agent, "Pendulum-v1", "./tmp/", best_reward, stochastic=False)
                 plot_critic(critic, eval_env_agent, "Pendulum-v1", "./tmp/", best_reward)
+    chrono.stop()
 
 params = {
     "save_best": True,

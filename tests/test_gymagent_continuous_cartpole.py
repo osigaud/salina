@@ -21,34 +21,6 @@ from salina.agents.gymb import AutoResetGymAgent, NoAutoResetGymAgent
 from salina.visu.visu_policies import plot_policy
 
 
-def get_transitions(workspace):
-    """
-    Takes in a workspace from salina:
-    [(step1),(step2),(step3), ... ]
-    return a workspace of transitions :
-    [
-        [step1,step2],
-        [step2,step3]
-        ...
-    ]
-    Filters every transitions [step_final,step_initial]
-    """
-    transitions = {}
-    done = workspace["env/done"][:-1]
-    for key in workspace.keys():
-        array = workspace[key]
-
-        # remove transitions (s_terminal -> s_initial)
-        x = array[:-1][~done]
-        x_next = array[1:][~done]
-        transitions[key] = torch.stack([x, x_next])
-
-    workspace = Workspace()
-    for k, v in transitions.items():
-        workspace.set_full(k, v)
-    return workspace
-
-
 def build_backbone(sizes, activation):
     layers = []
     for j in range(len(sizes) - 2):
@@ -239,7 +211,7 @@ def run_a2c(cfg, max_grad_norm=0.5):
         tcritic_agent(train_workspace, n_steps=cfg.algorithm.n_steps)
         nb_steps += cfg.algorithm.n_steps * cfg.algorithm.n_envs
 
-        transition_workspace = get_transitions(train_workspace)
+        transition_workspace = train_workspace.get_transitions()
 
         critic, done, reward, action, action_logp, truncated = transition_workspace[
                 "critic", "env/done", "env/reward", "action", "action_logprobs", "env/truncated"]

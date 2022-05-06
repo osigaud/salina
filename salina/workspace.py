@@ -608,6 +608,33 @@ class Workspace:
             mini_workspace = to_aggregate[0]
         return mini_workspace
 
+    def get_transitions(self) -> Workspace:
+        """
+        Takes in a workspace from salina:
+        [(step1),(step2),(step3), ... ]
+        return a workspace of transitions :
+        [
+            [step1,step2],
+            [step2,step3]
+            ...
+        ]
+        Filters every transitions [step_final,step_initial]
+        """
+        transitions = {}
+        done = self["env/done"][:-1]
+        for key in self.keys():
+            array = self[key]
+
+            # remove transitions (s_terminal -> s_initial)
+            x = array[:-1][~done]
+            x_next = array[1:][~done]
+            transitions[key] = torch.stack([x, x_next])
+
+        workspace = Workspace()
+        for k, v in transitions.items():
+            workspace.set_full(k, v)
+        return workspace
+
 
 class _SplitSharedWorkspace:
     """ This is a view over a Workspace, restricted to particular batch dimensions.

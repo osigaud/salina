@@ -62,7 +62,7 @@ def plot_pendulum_policy(
 
     title = "Pendulum Actor"
     plt.colorbar(label="action")
-
+    directory += "/pendulum_policies/"
     # Add a point at the center
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
@@ -120,7 +120,7 @@ def plot_cartpole_policy(
 
     title = "Cartpole Actor"
     plt.colorbar(label="action")
-
+    directory += "/cartpole_policies/"
     # Add a point at the center
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
