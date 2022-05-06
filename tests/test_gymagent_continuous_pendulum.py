@@ -87,7 +87,6 @@ class ContinuousActionStateDependentVarianceAgent(Agent):
         obs = self.get(("env/env_obs", t))
         backbone_output = self.backbone(obs)
         last = self.last_layer(backbone_output)
-        # print(last)
         mean = self.mean_layer(last)
         assert not torch.any(torch.isnan(mean)), "Nan Here"
         dist = Normal(mean, self.std_layer(last))
@@ -307,9 +306,9 @@ params = {
                "every_n_seconds": 10},
     "algorithm": {
         "seed": 5,
-        "n_envs": 1,
-        "n_steps": 8,
-        "eval_interval": 100,
+        "n_envs": 8,
+        "n_steps": 100,
+        "eval_interval": 1000,
         "nb_evals": 10,
         "gae": 0.8,
         "max_epochs": 50000,

@@ -72,7 +72,8 @@ def _torch_type(d):
 def _torch_cat_dict(d):
     r = {}
     for k in d[0]:
-        r[k] = torch.cat([dd[k] for dd in d], dim=0)
+        a = [dd[k] for dd in d]
+        r[k] = torch.cat(a, dim=0)
     return r
 
 
@@ -185,7 +186,6 @@ class GymAgent(TAgent):
             observation["rendering"] = image
         ret = {
             **observation,
-            # **next_obs,
             "done": torch.tensor([done]),
             "truncated": torch.tensor([truncated]),
             "cumulated_reward": torch.tensor([self.cumulated_reward[k]]),
@@ -240,11 +240,6 @@ class GymAgent(TAgent):
         if self.envs is None:
             self._initialize_envs(self.n_envs)
 
-        # if t > 0:
-        #    previous_obs = self.get(("env/env_obs", t - 1))
-        #    print(f"previous_obs :{previous_obs}")
-        #    self.set_obs(previous_obs, t - 1)
-
         if t == 0:
             self.timestep = torch.tensor([0 for _ in self.envs])
             observations = []
@@ -265,7 +260,6 @@ class GymAgent(TAgent):
             self.set_reward(rewards, t - 1)
             self.set_obs(observations, t)
             self.set_reward(rewards, t)
-            # self.set_next_obs(observations, t - 1)
 
     def is_continuous_action(self):
         return isinstance(self.action_space, gym.spaces.Box)
@@ -349,9 +343,6 @@ class AutoResetGymAgent(GymAgent):
                 observations.append(self._reset(k, save_render))
 
                 if t > 0:
-                    # previous_obs = self.get(("env/env_obs", t - 1))
-                    # print(f"previous_obs :{previous_obs}")
-                    # self.set_obs(previous_obs, t - 1)
                     rew = self.previous_reward[k]
                     rewards.append(rew)
             else:
@@ -363,9 +354,7 @@ class AutoResetGymAgent(GymAgent):
                 observations.append(full_obs)
                 rewards.append(reward)
 
-        # print(f"{t} : obs : {observations}")
         if t > 0:
-            # self.set_next_obs(observations, t - 1)
             self.set_reward(rewards, t - 1)
             self.set_reward(rewards, t)
         self.set_obs(observations, t)

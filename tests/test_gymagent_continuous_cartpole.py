@@ -10,6 +10,8 @@ from omegaconf import OmegaConf
 from salina import instantiate_class, get_arguments, get_class
 from salina.workspace import Workspace
 from salina.agents import Agents, TemporalAgent, PrintAgent
+from salina.chrono import Chrono
+from salina.rl.functional import gae
 
 import torch
 import torch.nn as nn
@@ -19,6 +21,7 @@ from salina.agent import Agent
 from salina.agents.gymb import AutoResetGymAgent, NoAutoResetGymAgent
 
 from salina.visu.visu_policies import plot_policy
+from salina.visu.visu_critics import plot_critic
 
 
 def build_backbone(sizes, activation):
@@ -36,8 +39,41 @@ def build_mlp(sizes, activation, output_activation=nn.Identity()):
     return nn.Sequential(*layers)
 
 
+class ContinuousActionTunableVarianceAgent(Agent):
+    def __init__(self, state_dim, hidden_layers, action_dim):
+        super().__init__()
+        layers = [state_dim] + list(hidden_layers) + [action_dim]
+        self.model = build_mlp(layers, activation=nn.ReLU())
+        init_variance = torch.randn(action_dim, 1)
+        # print("init_variance:", init_variance)
+        self.std_param = nn.parameter.Parameter(init_variance)
+        self.soft_plus = torch.nn.Softplus()
+
+    def forward(self, t, stochastic, **kwargs):
+        obs = self.get(("env/env_obs", t))
+        mean = self.model(obs)
+        dist = Normal(mean, self.soft_plus(self.std_param))  # std must be positive
+        self.set(("entropy", t), dist.entropy())
+        if stochastic:
+            action = dist.sample()  # valid actions are supposed to be in [-1,1] range
+        else:
+            action = mean  # valid actions are supposed to be in [-1,1] range
+        logp_pi = dist.log_prob(action).sum(axis=-1)
+        self.set(("action", t), action)
+        self.set(("action_logprobs", t), logp_pi)
+
+    def predict_action(self, obs, stochastic):
+        mean = self.model(obs)
+        dist = Normal(mean, self.soft_plus(self.std_param))
+        if stochastic:
+            action = dist.sample()  # valid actions are supposed to be in [-1,1] range
+        else:
+            action = mean  # valid actions are supposed to be in [-1,1] range
+        return action
+
+    
 class ContinuousActionStateDependentVarianceAgent(Agent):
-    def __init__(self, state_dim, hidden_layers, action_dim, **kwargs):
+    def __init__(self, state_dim, hidden_layers, action_dim):
         super().__init__()
         backbone_dim = [state_dim] + list(hidden_layers)
         self.layers = build_backbone(backbone_dim, activation=nn.ReLU())
@@ -129,10 +165,8 @@ class NoAutoResetEnvAgent(NoAutoResetGymAgent):
 def create_a2c_agent(cfg, train_env_agent, eval_env_agent):
     observation_size, n_actions = train_env_agent.get_obs_and_actions_sizes()
     action_agent = ContinuousActionStateDependentVarianceAgent(observation_size, cfg.algorithm.architecture.hidden_size, n_actions)
-    # print_agent = PrintAgent(*{"critic", "env/reward", "env/done", "action", "env/env_obs"})
-    # print_agent = PrintAgent(*{"env/done", "action", "env/env_obs"})
     tr_agent = Agents(train_env_agent, action_agent)
-    ev_agent = Agents(eval_env_agent, action_agent)
+    ev_agent = Agents(eval_env_agent, action_agent, PrintAgent())
 
     critic_agent = VAgent(observation_size, cfg.algorithm.architecture.hidden_size)
 
@@ -159,7 +193,8 @@ def compute_critic_loss(cfg, reward, must_bootstrap, critic):
     # Compute temporal difference
     target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (must_bootstrap.float())
     td = target - critic[:-1]
-
+    # td = gae(critic, reward, must_bootstrap, cfg.algorithm.discount_factor, cfg.algorithm.gae)
+    
     # Compute critic loss
     td_error = td ** 2
     critic_loss = td_error.mean()
@@ -173,6 +208,7 @@ def compute_actor_loss_continuous(action_logp, td):
 
 def run_a2c(cfg, max_grad_norm=0.5):
     # 1)  Build the  logger
+    chrono = Chrono()
     logger = Logger(cfg)
     best_reward = -10e9
 
@@ -224,7 +260,6 @@ def run_a2c(cfg, max_grad_norm=0.5):
         a2c_loss = a2c_loss.mean()
 
         # Compute entropy loss
-        # entropy_loss = torch.distributions.Categorical(action_probs).entropy().mean()
         entropy_loss = torch.mean(train_workspace["entropy"])
 
         # Store the losses for tensorboard display
@@ -256,8 +291,10 @@ def run_a2c(cfg, max_grad_norm=0.5):
                 filename = "./tmp/a2c" + str(mean.item()) + ".agt"
                 eval_agent.save_model(filename)
                 policy = eval_agent.agent.agents[1]
+                critic = critic_agent
                 plot_policy(policy, eval_env_agent, "CartPoleContinuous-v0", "./tmp/", best_reward, stochastic=False)
-
+                plot_critic(critic, eval_env_agent, "CartPoleContinuous-v0", "./tmp/", best_reward)
+    chrono.stop()
 
 params = {
     "save_best": True,
@@ -270,10 +307,10 @@ params = {
     },
     "algorithm": {
         "seed": 4,
-        "n_envs": 1,
-        "n_steps": 8,
-        "eval_interval": 200,
-        "nb_evals": 1,
+        "n_envs": 8,
+        "n_steps": 100,
+        "eval_interval": 500,
+        "nb_evals": 5,
         "max_epochs": 40000,
         "discount_factor": 0.95,
         "entropy_coef": 0.001,
@@ -288,7 +325,6 @@ params = {
 if __name__ == "__main__":
     # with autograd.detect_anomaly():
     sys.path.append(os.getcwd())
-    print(os.getcwd())
     config = OmegaConf.create(params)
     torch.manual_seed(config.algorithm.seed)
     run_a2c(config)
