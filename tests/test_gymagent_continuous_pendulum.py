@@ -177,8 +177,8 @@ def create_a2c_agent(cfg, train_env_agent, eval_env_agent):
     return train_agent, eval_agent, critic_agent
 
 
-def make_gym_env(max_episode_steps, env_name):
-    return TimeLimit(gym.make(env_name), max_episode_steps=max_episode_steps)
+def make_gym_env(env_name):
+    return gym.make(env_name)
 
 
 # Configure the optimizer over the a2c agent
@@ -306,9 +306,9 @@ params = {
                "every_n_seconds": 10},
     "algorithm": {
         "seed": 5,
-        "n_envs": 8,
-        "n_steps": 100,
-        "eval_interval": 1000,
+        "n_envs": 1,
+        "n_steps": 8,
+        "eval_interval": 100,
         "nb_evals": 10,
         "gae": 0.8,
         "max_epochs": 50000,
@@ -319,8 +319,7 @@ params = {
         "architecture": {"hidden_size": [64, 64]},
     },
     "gym_env": {"classname": "__main__.make_gym_env",
-                "env_name": "Pendulum-v1",
-                "max_episode_steps": 200},
+                "env_name": "Pendulum-v1"},
     "optimizer": {"classname": "torch.optim.RMSprop",
                   "lr": 0.004},
 }
