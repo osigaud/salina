@@ -35,7 +35,7 @@ def cumulated_reward(reward, done):
 
 def temporal_difference(critic, reward, must_bootstrap, discount_factor):
     target = reward[:-1] + discount_factor * critic[1:].detach() * (must_bootstrap.float())
-    td = target - critic[:-1]
+    td = target - critic
     to_add = torch.zeros(1, td.size()[1]).to(td.device)
     td = torch.cat([td, to_add], dim=0)
     return td
