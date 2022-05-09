@@ -146,7 +146,8 @@ def compute_critic_loss(cfg, reward, must_bootstrap, critic):
     # Compute temporal difference
     assert is_vec_of_ones(reward[:-1]), "A reward is not one"
     target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (must_bootstrap.float())
-    td = target - critic[0]
+    td = target - critic[:-1]
+    assert target.shape == critic[:-1].shape, f"Missing one element in the critic list: {target.shape} vs {critic.shape}"
 
     # Compute critic loss
     td_error = td ** 2
