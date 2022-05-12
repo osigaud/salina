@@ -172,7 +172,6 @@ class GymAgent(TAgent):
         obs, reward, done, info = env.step(action)
         if 'TimeLimit.truncated' in info.keys():
             truncated = info['TimeLimit.truncated']
-            # truncated = True
         else:
             truncated = False
         self.cumulated_reward[k] += reward

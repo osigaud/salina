@@ -105,6 +105,7 @@ class GymAgent(TAgent):
         self.ghost_params = torch.nn.Parameter(torch.randn(()))
         self.timestep = torch.tensor([0 for _ in range(n_envs)])
         self.finished = torch.tensor([True for _ in range(n_envs)])
+        self.truncated = torch.tensor([False for _ in range(n_envs)])
 
     def _common_init(self, n):
         # TODO: en l'état ce assert ne sert à rien car on initialise seed à 0. Revoir le modèle de seed
@@ -114,6 +115,7 @@ class GymAgent(TAgent):
             for k in range(n):
                 self.envs[k].seed(self._seed + k)
         self.finished = torch.tensor([True for _ in self.envs])
+        self.truncated = torch.tensor([True for _ in self.envs])
         self.timestep = torch.tensor([0 for _ in self.envs])
         self.cumulated_reward = {}
 
@@ -142,19 +144,16 @@ class GymAgent(TAgent):
             image = env.render(mode="image").unsqueeze(0)
             observation["rendering"] = image
 
-        done = torch.tensor([False])
-        initial_state = torch.tensor([True])
         self.finished[k] = False
-        reward = torch.tensor([0.0]).float()
+        self.truncated[k] = False
         self.timestep[k] = 0
-        timestep = torch.tensor([self.timestep[k]])
 
         ret = {
             **observation,
-            "done": done,
-            "initial_state": initial_state,
-            "reward": reward,
-            "timestep": timestep,
+            "done": torch.tensor([False]),
+            "truncated": torch.tensor([False]),
+            "reward": torch.tensor([0.0]).float(),
+            "timestep": torch.tensor([self.timestep[k]]),
             "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
         }
         return _torch_type(ret), observation
@@ -167,7 +166,11 @@ class GymAgent(TAgent):
     def _make_step(self, env, action, k, save_render):
         action = _convert_action(action)
 
-        obs, reward, done, _ = env.step(action)
+        obs, reward, done, info = env.step(action)
+        if 'TimeLimit.truncated' in info.keys():
+            truncated = info['TimeLimit.truncated']
+        else:
+            truncated = False
         self.cumulated_reward[k] += reward
         observation = _format_frame(obs)
         if isinstance(observation, torch.Tensor):
@@ -180,12 +183,12 @@ class GymAgent(TAgent):
         ret = {
             **observation,
             "done": torch.tensor([done]),
-            "initial_state": torch.tensor([False]),
+            "truncated": torch.tensor([truncated]),
             "reward": torch.tensor([reward]).float(),
             "cumulated_reward": torch.tensor([self.cumulated_reward[k]]),
             "timestep": torch.tensor([self.timestep[k]]),
         }
-        return _torch_type(ret), observation, done
+        return _torch_type(ret), done, truncated, observation
 
     def _step(self, k, action, save_render):
         if self.finished[k]:
@@ -193,17 +196,18 @@ class GymAgent(TAgent):
             return {
                 **self.last_frame[k],
                 "done": torch.tensor([True]),
-                "initial_state": torch.tensor([False]),
+                "truncated": torch.tensor([self.truncated[k]]),
                 "reward": torch.tensor([0.0]).float(),
                 "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
                 "timestep": torch.tensor([self.timestep[k]]),
             }
         self.timestep[k] += 1
-        retour, observation, done = self._make_step(self.envs[k], action, k, save_render)
+        retour, done, truncated, observation = self._make_step(self.envs[k], action, k, save_render)
 
         self.last_frame[k] = observation
         if done:
             self.finished[k] = True
+            self.truncated[k] = truncated
         return retour
 
     def set_obs(self, observations, t):
@@ -274,7 +278,7 @@ class AutoResetGymAgent(GymAgent):
             make_env_fn ([function that returns a gym.Env]): The function to create a single gym environments
             make_env_args (dict): The arguments of the function that creates a gym.Env
             n_envs ([int]): The number of environments to create.
-            input (str, optional): [the name of the action variable in the workspace]. Defaults to "action".
+            action_string (str, optional): [the name of the action variable in the workspace]. Defaults to "action".
             output (str, optional): [the output prefix of the environment]. Defaults to "env/".
             use_seed (bool, optional): [If True, then the seed is chained to the environments,
             and each environment will have its own seed]. Defaults to True.
@@ -299,9 +303,10 @@ class AutoResetGymAgent(GymAgent):
 
     def _step(self, k, action, save_render):
         self.timestep[k] += 1
-        retour, _, done = self._make_step(self.envs[k], action, k, save_render)
+        retour, done, truncated, _ = self._make_step(self.envs[k], action, k, save_render)
         if done:
             self.is_running[k] = False
+            self.truncated[k] = truncated
         return retour
 
     def forward(self, t=0, save_render=False, **kwargs):

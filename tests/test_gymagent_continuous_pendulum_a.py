@@ -17,8 +17,8 @@ from salina.workspace import Workspace
 from salina.agent import Agent
 from salina.agents import Agents, TemporalAgent, PrintAgent
 
-from salina.agents.gymb import AutoResetGymAgent, NoAutoResetGymAgent
-from salina.rl.functionalb import gae
+from salina.agents.gyma import AutoResetGymAgent, NoAutoResetGymAgent
+from salina.rl.functional import gae
 
 from salina.visu.visu_policies import plot_policy
 from salina.visu.visu_critics import plot_critic
@@ -191,7 +191,7 @@ def setup_optimizers(cfg, action_agent, critic_agent):
 
 def compute_critic_loss(cfg, reward, must_bootstrap, critic):
     # Compute temporal difference
-    target = reward[:-1] + cfg.algorithm.discount_factor * critic[1:].detach() * (must_bootstrap.float())
+    target = reward[1:] + cfg.algorithm.discount_factor * critic[1:].detach() * (must_bootstrap.float())
     td = target - critic[:-1]
     assert target.shape == critic[:-1].shape, f"Missing an element in the critic list: {target.shape} vs {critic.shape}"
     # td = gae(critic, reward, must_bootstrap, cfg.algorithm.discount_factor, cfg.algorithm.gae)
