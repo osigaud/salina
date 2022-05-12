@@ -72,12 +72,12 @@ def gae(critic, reward, must_bootstrap, discount_factor, gae_coef):
     return gae_vals
 
 
-def compute_reinforce_loss(reward, action_probabilities, baseline, action, must_bootstrap, discount_factor):
+def compute_reinforce_loss(reward, action_probabilities, baseline, action, done, discount_factor):
 
     batch_size = reward.size()[1]
 
-    # Find the first done occurrence for each element in the batch
-    v_done, trajectories_length = must_bootstrap.float().max(0)
+    # Find the first occurrence of done for each element in the batch
+    v_done, trajectories_length = done.float().max(0)
     trajectories_length += 1
     assert v_done.eq(1.0).all()
     max_trajectories_length = trajectories_length.max().item()
@@ -88,7 +88,7 @@ def compute_reinforce_loss(reward, action_probabilities, baseline, action, must_
     action = action[:max_trajectories_length]
 
     # Create a binary mask to mask useless values (of size max_trajectories_length x batch_size)
-    arange = torch.arange(max_trajectories_length, device=must_bootstrap.device).unsqueeze(-1).repeat(1, batch_size)
+    arange = torch.arange(max_trajectories_length, device=done.device).unsqueeze(-1).repeat(1, batch_size)
     mask = arange.lt(trajectories_length.unsqueeze(0).repeat(max_trajectories_length, 1))
     reward = reward * mask
 
@@ -115,8 +115,3 @@ def compute_reinforce_loss(reward, action_probabilities, baseline, action, must_
     entropy_loss = entropy.mean()
 
     return {"baseline_loss": baseline_loss, "policy_loss": policy_loss, "entropy_loss": entropy_loss}
-
-
-# def soft_update_params(net, target_net, tau):
-#     for param, target_param in zip(net.parameters(), target_net.parameters()):
-#         target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)

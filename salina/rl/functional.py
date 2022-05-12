@@ -33,9 +33,9 @@ def cumulated_reward(reward, done):
     return reward.mean().item()
 
 
-def temporal_difference(critic, reward, done, discount_factor):
+def temporal_difference(critic, reward, must_bootstrap, discount_factor):
     target = (
-        discount_factor * critic[1:].detach() * (1.0 - done[1:].float()) + reward[1:]
+        discount_factor * critic[1:].detach() * must_bootstrap.float() + reward[1:]
     )
     td = target - critic[:-1]
     to_add = torch.zeros(1, td.size()[1]).to(td.device)
@@ -43,14 +43,12 @@ def temporal_difference(critic, reward, done, discount_factor):
     return td
 
 
-def doubleqlearning_temporal_difference(
-    q, action, q_target, reward, done, discount_factor
-):
+def doubleqlearning_temporal_difference(q, action, q_target, reward, must_bootstrap, discount_factor):
     action_max = q.max(-1)[1]
     q_target_max = _index(q_target, action_max).detach()[1:]
 
-    done = done.float()
-    target = reward[1:] + discount_factor * q_target_max * (1 - done[1:])
+    mb = must_bootstrap.float()
+    target = reward[1:] + discount_factor * q_target_max * mb
 
     q = _index(q, action)[:-1]
     td = target - q
@@ -59,33 +57,29 @@ def doubleqlearning_temporal_difference(
     return td
 
 
-def gae(critic, reward, done, discount_factor, gae_coef):
-    r = reward[1:]
-    v = critic[1:].detach()
-    d = done.float()
-    td = r + discount_factor * (1.0 - d[1:]) * v - critic[:-1]
+def gae(critic, reward, must_bootstrap, discount_factor, gae_coef):
+    mb = must_bootstrap.float()
+    td = reward[1:] + discount_factor * mb * critic[1:].detach() - critic[:-1]
     # handling td0 case
     if gae_coef == 0.0:
         return td
 
-    T = td.shape[0]
-    gae = td[-1]
-    gaes = [gae]
-    for t in range(T - 2, -1, -1):
-        gae = td[t] + discount_factor * gae_coef * (1.0 - d[:-1][t]) * gae
-        gaes.append(gae)
+    td_shape = td.shape[0]
+    gae_val = td[-1]
+    gaes = [gae_val]
+    for t in range(td_shape - 2, -1, -1):
+        gae_val = td[t] + discount_factor * gae_coef * mb[:-1][t] * gae_val
+        gaes.append(gae_val)
     gaes = list([g.unsqueeze(0) for g in reversed(gaes)])
     gaes = torch.cat(gaes, dim=0)
     return gaes
 
 
-def compute_reinforce_loss(
-    reward, action_probabilities, baseline, action, done, discount_factor
-):
+def compute_reinforce_loss(reward, action_probabilities, baseline, action, done, discount_factor):
 
     batch_size = reward.size()[1]
 
-    # Find the first done occurence fir each element in the batch
+    # Find the first occurrence of done for each element in the batch
     v_done, trajectories_length = done.float().max(0)
     trajectories_length += 1
     assert v_done.eq(1.0).all()
@@ -108,14 +102,14 @@ def compute_reinforce_loss(
     reward = reward * mask
 
     # Compute discounted cumulated reward
-    cumulated_reward = [torch.zeros_like(reward[-1])]
+    cum_reward = [torch.zeros_like(reward[-1])]
     for t in range(max_trajectories_length - 1, 0, -1):
-        cumulated_reward.append(discount_factor + cumulated_reward[-1] + reward[t])
-    cumulated_reward.reverse()
-    cumulated_reward = torch.cat([c.unsqueeze(0) for c in cumulated_reward])
+        cum_reward.append(discount_factor + cum_reward[-1] + reward[t])
+    cum_reward.reverse()
+    cum_reward = torch.cat([c.unsqueeze(0) for c in cum_reward])
 
     # baseline loss
-    g = baseline - cumulated_reward
+    g = baseline - cum_reward
     baseline_loss = (g) ** 2
     baseline_loss = (baseline_loss * mask).mean()
 
