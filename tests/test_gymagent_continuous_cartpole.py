@@ -293,8 +293,8 @@ def run_a2c(cfg, max_grad_norm=0.5):
                 eval_agent.save_model(filename)
                 policy = eval_agent.agent.agents[1]
                 critic = critic_agent
-                plot_policy(policy, eval_env_agent, "CartPoleContinuous-v0", "./tmp/", best_reward, stochastic=False)
-                plot_critic(critic, eval_env_agent, "CartPoleContinuous-v0", "./tmp/", best_reward)
+                plot_policy(policy, eval_env_agent, "./tmp/", cfg.gym_env.env_name, best_reward, stochastic=False)
+                plot_critic(critic, eval_env_agent, "./tmp/", cfg.gym_env.env_name, best_reward)
     chrono.stop()
 
 params = {

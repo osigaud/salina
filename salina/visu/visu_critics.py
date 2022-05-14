@@ -8,7 +8,7 @@ import torch as th
 from salina.visu.common import final_show
 
 
-def plot_critic(agent, env, env_name, directory, best_reward, plot=False):
+def plot_critic(agent, env, directory, env_name, best_reward, plot=False):
     if "cartpole" in env_name.lower():
         plot_env = plot_cartpole_critic
     elif "pendulum" in env_name.lower():
@@ -18,11 +18,11 @@ def plot_critic(agent, env, env_name, directory, best_reward, plot=False):
         return
 
     figname = f"critic_{env_name}_{best_reward}.png"
-    plot_env(agent, env, figname, directory, plot)
+    plot_env(agent, env, directory, figname, plot)
 
 
 def plot_pendulum_critic(
-    agent, env, figname, directory, plot=True, save_figure=True, stochastic=None
+    agent, env, directory, figname, plot=True, save_figure=True, stochastic=None
 ):
     """
     Plot a critic for the Pendulum environment
@@ -67,11 +67,11 @@ def plot_pendulum_critic(
     # Add a point at the center
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figname, x_label, y_label, title, directory)
+    final_show(save_figure, plot, directory, figname, x_label, y_label, title)
 
 
 def plot_cartpole_critic(
-    agent, env, figname, directory, plot=True, save_figure=True, stochastic=None
+    agent, env, directory, figname, plot=True, save_figure=True, stochastic=None
 ):
     """
     Visualization of the critic in a N-dimensional state space
@@ -126,4 +126,4 @@ def plot_cartpole_critic(
     # Add a point at the center
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figname, x_label, y_label, title, directory)
+    final_show(save_figure, plot, directory, figname, x_label, y_label, title)

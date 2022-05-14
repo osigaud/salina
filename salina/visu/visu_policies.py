@@ -7,7 +7,7 @@ import torch as th
 from salina.visu.common import final_show
 
 
-def plot_policy(agent, env, env_name, directory, best_reward, plot=False, stochastic=False):
+def plot_policy(agent, env, directory, env_name, best_reward, plot=False, stochastic=False):
     if "cartpole" in env_name.lower():
         plot_env = plot_cartpole_policy
     elif "pendulum" in env_name.lower():
@@ -17,11 +17,11 @@ def plot_policy(agent, env, env_name, directory, best_reward, plot=False, stocha
         return
     save_figure = True
     figname = f"policy_{env_name}_{best_reward}.png"
-    plot_env(agent, env, figname, directory, plot, save_figure, stochastic)
+    plot_env(agent, env, directory, figname, plot, save_figure, stochastic)
 
 
 def plot_pendulum_policy(
-    agent, env, figname, directory, plot=True, save_figure=True, stochastic=None
+    agent, env, directory, figname, plot=True, save_figure=True, stochastic=None
 ):
     """
     Plot an agent for the Pendulum environment
@@ -66,11 +66,11 @@ def plot_pendulum_policy(
     # Add a point at the center
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figname, x_label, y_label, title, directory)
+    final_show(save_figure, plot, directory, figname, x_label, y_label, title)
 
 
 def plot_cartpole_policy(
-    agent, env, figname, directory, plot=True, save_figure=True, stochastic=None
+    agent, env, directory, figname, plot=True, save_figure=True, stochastic=None
 ):
     """
     Visualization of a policy in a N-dimensional state space
@@ -124,4 +124,4 @@ def plot_cartpole_policy(
     # Add a point at the center
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figname, x_label, y_label, title, directory)
+    final_show(save_figure, plot, directory, figname, x_label, y_label, title)

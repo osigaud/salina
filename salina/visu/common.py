@@ -3,7 +3,7 @@ import os
 import matplotlib.pyplot as plt
 
 
-def final_show(save_figure, plot, figure_name, x_label, y_label, title, directory):
+def final_show(save_figure, plot, directory, figure_name, x_label, y_label, title):
     """
     Finalize all plots, adding labels and putting the corresponding file in the
     specified directory
