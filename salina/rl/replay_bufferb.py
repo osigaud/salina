@@ -20,36 +20,9 @@ class ReplayBuffer:
         self.device = device
 
     def put(self, workspace, time_size=None, padding=None):
-        assert (
-            workspace._all_variables_same_time_size()
-        ), "Only works with workspace where all variables have the same time_size"
-        limit_limit = workspace.time_size()
-        if time_size is not None:
-            assert time_size <= limit_limit
-            n = limit_limit - time_size + 1
-            if padding is None:
-                padding = 1
-            for t in range(0, n, padding):
-                sub_workspace = workspace.subtime(t, t + time_size)
-                self.put(sub_workspace)
-            return
+        self.variables = workspace.variables
 
         all_tensors = {k: workspace.get_full(k).detach().to(self.device) for k in workspace.keys()}
-        if self.variables is None:
-            self.variables = {}
-            for k, v in all_tensors.items():
-                s = list(v.size())
-                s[1] = self.max_size
-                _s = copy.deepcopy(s)
-                s[0] = _s[1]
-                s[1] = _s[0]
-
-                tensor = torch.zeros(*s, dtype=v.dtype, device=self.device)
-                print("[ReplayBuffer] Var ", k, " size=", s, " dtype=", v.dtype, " device=", self.device)
-                self.variables[k] = tensor
-            self.is_full = False
-            self.position = 0
-
         batch_size = None
         arange = None
         indexes = None
